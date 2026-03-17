@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Import en cours — Palmarès{% endblock %}
+
+{% block content %}
+
+<div class="flex min-h-96 flex-col items-center justify-center py-16 text-center">
+
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-2xl font-bold text-slate-900">Import en cours</h1>
+        <p class="mt-2 text-sm text-slate-500 truncate max-w-md mx-auto">
+            {{ source_file.original_filename }}
+        </p>
+    </div>
+
+    <!-- Status container with HTMX polling -->
+    <div id="import-status"
+         hx-get="{% url 'imports:import_status' source_file.pk %}"
+         hx-trigger="every 2s"
+         hx-swap="outerHTML">
+        {% include "imports/partials/import_status.html" %}
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Rapport d'analyse — Palmarès{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<nav class="mb-6 flex items-center gap-2 text-sm text-slate-500">
+    <a href="{% url 'imports:import_list' %}" class="hover:text-slate-700 transition-colors">Importations</a>
+    <svg class="h-4 w-4 shrink-0 text-slate-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+    </svg>
+    <span class="font-medium text-slate-900 truncate">{{ source_file.original_filename }}</span>
+</nav>
+
+<!-- Page header -->
+<div class="mb-8">
+    <h1 class="text-2xl font-bold text-slate-900">Rapport d'analyse</h1>
+    <p class="mt-1 text-sm text-slate-500">{{ source_file.original_filename }}</p>
+</div>
+
+<!-- Le partial gère lui-même le polling (hx-trigger) quand nécessaire -->
+{% include "imports/partials/dry_run_status.html" %}
+
+{% endblock %}

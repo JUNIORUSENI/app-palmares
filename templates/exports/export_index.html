@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}Exports — Palmarès{% endblock %}
+
+{% block content %}
+
+<!-- Page header -->
+<div class="mb-8">
+    <h1 class="text-2xl font-bold text-slate-900">Exports</h1>
+    <p class="mt-1 text-sm text-slate-500">Sélectionnez une année, une section et une classe pour exporter</p>
+</div>
+
+{% if years_list %}
+<div class="max-w-xl"
+     x-data="exportSelector({{ export_data_json }})"
+     x-init="init()">
+
+    <!-- Sélecteur Année -->
+    <div class="mb-5">
+        <label class="mb-1.5 block text-sm font-medium text-slate-700">Année scolaire</label>
+        <div class="relative">
+            <select x-model="selectedYear"
+                    @change="onYearChange()"
+                    class="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-4 pr-10 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                <option value="">— Choisir une année —</option>
+                {% for year in years_list %}
+                <option value="{{ year.id }}">{{ year.label }}</option>
+                {% endfor %}
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sélecteur Section -->
+    <div class="mb-5" x-show="sections.length > 0" x-cloak>
+        <label class="mb-1.5 block text-sm font-medium text-slate-700">Section</label>
+        <div class="relative">
+            <select x-model="selectedSection"
+                    @change="onSectionChange()"
+                    class="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-4 pr-10 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                <option value="">— Choisir une section —</option>
+                <template x-for="section in sections" :key="section">
+                    <option :value="section" x-text="section"></option>
+                </template>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sélecteur Classe -->
+    <div class="mb-8" x-show="classrooms.length > 0" x-cloak>
+        <label class="mb-1.5 block text-sm font-medium text-slate-700">Classe</label>
+        <div class="relative">
+            <select x-model="selectedClass"
+                    class="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-4 pr-10 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+                <option value="">— Choisir une classe —</option>
+                <template x-for="cls in classrooms" :key="cls.id">
+                    <option :value="cls.id" x-text="cls.name"></option>
+                </template>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Boutons d'export — apparaissent quand une classe est sélectionnée -->
+    <div x-show="selectedYear && selectedClass" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 translate-y-1"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+
+        <div class="mb-4">
+            <p class="text-sm font-semibold text-slate-900">Exporter le palmarès</p>
+            <p class="mt-0.5 text-xs text-slate-500"
+               x-text="selectedClassName + ' — ' + selectedYearLabel"></p>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <!-- Export CSV -->
+            <a :href="csvUrl"
+               class="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-5 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm hover:bg-emerald-100 transition-colors">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Télécharger CSV
+            </a>
+
+            <!-- Export PDF -->
+            <a :href="pdfUrl"
+               class="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-semibold text-red-700 shadow-sm hover:bg-red-100 transition-colors">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+                Télécharger PDF
+            </a>
+        </div>
+    </div>
+
+    <!-- Export tous les élèves -->
+    <div class="mt-6 flex items-center gap-3 border-t border-slate-100 pt-6">
+        <span class="text-xs text-slate-400">Export global :</span>
+        <a href="{% url 'exports:csv_students' %}"
+           class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50 transition-colors">
+            <svg class="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            Tous les élèves (CSV)
+        </a>
+    </div>
+
+</div>
+
+{% else %}
+<!-- Empty state -->
+<div class="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white py-20 text-center shadow-sm max-w-xl">
+    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+        <svg class="h-7 w-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+        </svg>
+    </div>
+    <p class="mt-4 text-sm font-semibold text-slate-700">Aucune donnée à exporter</p>
+    <p class="mt-1 text-xs text-slate-400">Importez d'abord un fichier Excel.</p>
+    <a href="{% url 'imports:import_upload' %}"
+       class="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
+        Importer un fichier
+    </a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function exportSelector(data) {
+    return {
+        data: data,
+        selectedYear: '',
+        selectedSection: '',
+        selectedClass: '',
+        sections: [],
+        classrooms: [],
+        selectedYearLabel: '',
+        selectedClassName: '',
+        csvUrl: '#',
+        pdfUrl: '#',
+
+        init() {},
+
+        onYearChange() {
+            this.selectedSection = '';
+            this.selectedClass = '';
+            this.classrooms = [];
+            this.selectedYearLabel = '';
+
+            if (!this.selectedYear || !this.data[this.selectedYear]) {
+                this.sections = [];
+                return;
+            }
+            const yearData = this.data[this.selectedYear];
+            this.selectedYearLabel = yearData.label;
+            this.sections = Object.keys(yearData.sections).sort();
+        },
+
+        onSectionChange() {
+            this.selectedClass = '';
+            this.selectedClassName = '';
+
+            if (!this.selectedSection) {
+                this.classrooms = [];
+                return;
+            }
+            const yearData = this.data[this.selectedYear];
+            this.classrooms = yearData.sections[this.selectedSection] || [];
+        },
+
+        get csvUrl() {
+            if (!this.selectedYear || !this.selectedClass) return '#';
+            return `/exports/csv/palmares/${this.selectedYear}/${this.selectedClass}/`;
+        },
+
+        get pdfUrl() {
+            if (!this.selectedYear || !this.selectedClass) return '#';
+            return `/exports/pdf/palmares/${this.selectedYear}/${this.selectedClass}/`;
+        },
+
+        get selectedClassName() {
+            if (!this.selectedClass) return '';
+            const cls = this.classrooms.find(c => c.id == this.selectedClass);
+            return cls ? cls.name : '';
+        },
+    }
+}
+</script>
+{% endblock %}

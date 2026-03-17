@@ -1,0 +1,34 @@
+<form hx-post="{% url 'academics:grade_edit_inline' grade.pk %}"
+      hx-target="#grade-cell-{{ grade.pk }}"
+      hx-swap="innerHTML"
+      class="flex items-center gap-1.5">
+    {% csrf_token %}
+    <input type="number"
+           name="percentage"
+           value="{% if grade.percentage is not None %}{{ grade.percentage }}{% endif %}"
+           placeholder="—"
+           step="0.01"
+           min="0"
+           max="100"
+           autofocus
+           class="w-20 rounded border border-slate-200 bg-white px-2 py-1 text-sm font-mono text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
+    <!-- Bouton Valider (vert) -->
+    <button type="submit"
+            class="flex h-7 w-7 items-center justify-center rounded-md bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+            title="Valider">
+        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+        </svg>
+    </button>
+    <!-- Bouton Annuler (gris) -->
+    <button type="button"
+            hx-get="{% url 'academics:grade_cell' grade.pk %}"
+            hx-target="#grade-cell-{{ grade.pk }}"
+            hx-swap="innerHTML"
+            class="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+            title="Annuler">
+        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+        </svg>
+    </button>
+</form>

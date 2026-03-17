@@ -1,0 +1,58 @@
+{% if query and results %}
+<div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+
+    <!-- Header -->
+    <div class="border-b border-slate-100 bg-slate-50 px-4 py-2">
+        <p class="text-xs font-medium text-slate-500">
+            {{ results|length }} résultat{% if results|length > 1 %}s{% endif %} pour
+            <span class="font-semibold text-slate-700">« {{ query }} »</span>
+        </p>
+    </div>
+
+    <!-- Results list (max 8 visible, scroll after) -->
+    <div class="max-h-72 overflow-y-auto divide-y divide-slate-100">
+        {% for student in results|slice:":8" %}
+        <a href="{% url 'academics:student_detail' student.pk %}"
+           class="flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors group">
+            <!-- Avatar initiale -->
+            <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600 group-hover:bg-blue-100 group-hover:text-blue-700 transition-colors">
+                {{ student.full_name|first|upper }}
+            </div>
+            <span class="flex-1 text-sm font-medium text-slate-800 group-hover:text-blue-700 transition-colors truncate">
+                {{ student.full_name }}
+            </span>
+            <span class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                {{ student.grades.count }} résultat{{ student.grades.count|pluralize }}
+            </span>
+            <svg class="h-3.5 w-3.5 shrink-0 text-slate-300 group-hover:text-blue-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- Footer: voir tout si plus de 8 -->
+    {% if results|length > 8 %}
+    <div class="border-t border-slate-100 px-4 py-2 bg-slate-50">
+        <a href="{% url 'academics:student_list' %}?q={{ query }}"
+           class="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors">
+            Voir les {{ results|length }} résultats complets →
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+
+{% elif query %}
+<div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl px-4 py-5 text-center">
+    <div class="flex flex-col items-center gap-2">
+        <svg class="h-8 w-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+        </svg>
+        <p class="text-sm text-slate-500">
+            Aucun résultat pour <span class="font-medium text-slate-700">« {{ query }} »</span>
+        </p>
+        <p class="text-xs text-slate-400">Vérifiez l'orthographe ou essayez un prénom seul</p>
+    </div>
+</div>
+{% endif %}

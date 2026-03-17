@@ -1,0 +1,33 @@
+<div id="student-name-field">
+    <form hx-post="{% url 'academics:student_name_edit' student.pk %}"
+          hx-target="#student-name-field"
+          hx-swap="outerHTML"
+          class="flex items-center gap-2">
+        {% csrf_token %}
+        <input type="text"
+               name="full_name"
+               value="{{ student.full_name }}"
+               autofocus
+               required
+               class="rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-lg font-bold text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-72">
+        <!-- Valider -->
+        <button type="submit"
+                class="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors shadow-sm"
+                title="Enregistrer">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+        </button>
+        <!-- Annuler -->
+        <button type="button"
+                hx-get="{% url 'academics:student_name_display' student.pk %}"
+                hx-target="#student-name-field"
+                hx-swap="outerHTML"
+                class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 transition-colors shadow-sm"
+                title="Annuler">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+        </button>
+    </form>
+</div>

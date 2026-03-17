@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Palmarès {{ classroom }} — {{ year }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 11px; color: #1e293b; margin: 20mm; }
+        h1 { font-size: 18px; color: #1e40af; border-bottom: 2px solid #1e40af; padding-bottom: 6px; }
+        .meta { color: #64748b; margin-bottom: 16px; }
+        .stats { display: flex; gap: 20px; margin-bottom: 20px; }
+        .stat-card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px 16px; border-radius: 6px; }
+        .stat-card .val { font-size: 20px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { background: #1e40af; color: white; }
+        thead th { padding: 8px 10px; text-align: left; }
+        tbody tr:nth-child(even) { background: #f8fafc; }
+        tbody td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: bold; }
+        .admis { background: #dcfce7; color: #16a34a; }
+        .ajourn { background: #fee2e2; color: #dc2626; }
+        .footer { margin-top: 20px; text-align: center; color: #94a3b8; font-size: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Palmarès — {{ classroom }}</h1>
+    <p class="meta">Année scolaire : <strong>{{ year }}</strong> · Section : <strong>{{ classroom.section }}</strong></p>
+
+    <div class="stats">
+        <div class="stat-card"><div class="val">{{ total }}</div>Élèves</div>
+        <div class="stat-card"><div class="val" style="color:#16a34a">{{ passed }}</div>Admis</div>
+        <div class="stat-card"><div class="val" style="color:#dc2626">{{ total|add:"-"|add:passed }}</div>Ajournés</div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:40px">#</th>
+                <th>Nom complet</th>
+                <th>Pourcentage</th>
+                <th>Statut</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for grade in grades %}
+            <tr>
+                <td style="color:#94a3b8">{{ forloop.counter }}</td>
+                <td><strong>{{ grade.student.full_name }}</strong></td>
+                <td style="font-family:monospace">{{ grade.percentage }}%</td>
+                <td>
+                    {% if grade.percentage >= 50 %}
+                    <span class="badge admis">Admis</span>
+                    {% else %}
+                    <span class="badge ajourn">Ajourné</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="footer">Document généré automatiquement — Système de gestion des palmarès scolaires</div>
+</body>
+</html>

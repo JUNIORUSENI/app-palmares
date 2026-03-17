@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}{{ year }} — Palmarès{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<nav class="mb-6 flex items-center gap-2 text-sm text-slate-500">
+    <a href="{% url 'dashboard:home' %}" class="hover:text-slate-700 transition-colors">Accueil</a>
+    <svg class="h-4 w-4 shrink-0 text-slate-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+    </svg>
+    <span class="font-medium text-slate-900">{{ year }}</span>
+</nav>
+
+<!-- Page header -->
+<div class="mb-8 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900">Année {{ year }}</h1>
+        <p class="mt-1 text-sm text-slate-500">Résultats et statistiques de l'année scolaire</p>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+    <!-- Total résultats -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total résultats</p>
+                <p class="mt-2 text-3xl font-bold text-slate-900">{{ stats.total }}</p>
+            </div>
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100">
+                <svg class="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Moyenne générale -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Moyenne générale</p>
+                <p class="mt-2 text-3xl font-bold text-slate-900">{{ stats.avg_pct|floatformat:1 }}<span class="text-lg text-slate-400">%</span></p>
+            </div>
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100">
+                <svg class="h-5 w-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0 0 20.25 18V6A2.25 2.25 0 0 0 18 3.75H6A2.25 2.25 0 0 0 3.75 6v12A2.25 2.25 0 0 0 6 20.25Z" />
+                </svg>
+            </div>
+        </div>
+        <div class="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+            <div class="h-1.5 rounded-full bg-violet-500" style="width: {{ stats.avg_pct|floatformat:0 }}%"></div>
+        </div>
+    </div>
+
+    <!-- Taux de réussite -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Taux de réussite</p>
+                <p class="mt-2 text-3xl font-bold
+                    {% if pass_rate >= 70 %}text-green-600
+                    {% elif pass_rate >= 50 %}text-yellow-600
+                    {% else %}text-red-600{% endif %}">
+                    {{ pass_rate|floatformat:1 }}<span class="text-lg opacity-60">%</span>
+                </p>
+            </div>
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg
+                {% if pass_rate >= 70 %}bg-green-100
+                {% elif pass_rate >= 50 %}bg-yellow-100
+                {% else %}bg-red-100{% endif %}">
+                <svg class="h-5 w-5
+                    {% if pass_rate >= 70 %}text-green-600
+                    {% elif pass_rate >= 50 %}text-yellow-600
+                    {% else %}text-red-600{% endif %}"
+                     fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+            </div>
+        </div>
+        <div class="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+            <div class="h-1.5 rounded-full transition-all
+                {% if pass_rate >= 70 %}bg-green-500
+                {% elif pass_rate >= 50 %}bg-yellow-500
+                {% else %}bg-red-500{% endif %}"
+                 style="width: {{ pass_rate|floatformat:0 }}%"></div>
+        </div>
+    </div>
+
+    <!-- Nb classes -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Nb classes</p>
+                <p class="mt-2 text-3xl font-bold text-slate-900">{{ classes.count }}</p>
+            </div>
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-100">
+                <svg class="h-5 w-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 7.125C2.25 6.504 2.754 6 3.375 6h6c.621 0 1.125.504 1.125 1.125v3.75c0 .621-.504 1.125-1.125 1.125h-6a1.125 1.125 0 0 1-1.125-1.125v-3.75ZM14.25 8.625c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v8.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 0 1-1.125-1.125v-8.25ZM3.75 16.125c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v2.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 0 1-1.125-1.125v-2.25Z" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Classes table -->
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="border-b border-slate-100 px-6 py-4">
+        <h2 class="text-sm font-semibold text-slate-900">Classes</h2>
+    </div>
+    <table class="w-full text-sm">
+        <thead class="bg-slate-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Classe</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Section</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Élèves</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 w-48">Moyenne</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vérifiés</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Action</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for cls in classes %}
+            <tr class="hover:bg-slate-50/70 transition-colors">
+                <td class="px-6 py-3.5">
+                    <span class="font-semibold text-slate-900">{{ cls.name }}</span>
+                </td>
+                <td class="px-6 py-3.5 text-slate-500">{{ cls.section|default:"—" }}</td>
+                <td class="px-6 py-3.5 text-slate-600">{{ cls.student_count }}</td>
+                <td class="px-6 py-3.5">
+                    <div class="flex items-center gap-2">
+                        <span class="font-mono text-sm font-medium text-slate-800 w-12 shrink-0">{{ cls.avg_pct|floatformat:1 }}%</span>
+                        <div class="flex-1 h-1.5 min-w-16 overflow-hidden rounded-full bg-slate-100">
+                            <div class="h-1.5 rounded-full
+                                {% if cls.avg_pct >= 70 %}bg-green-500
+                                {% elif cls.avg_pct >= 50 %}bg-yellow-500
+                                {% else %}bg-red-500{% endif %}"
+                                 style="width: {{ cls.avg_pct|floatformat:0 }}%"></div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-3.5">
+                    <span class="text-slate-600">{{ cls.verified_count }}</span>
+                    <span class="text-slate-300">/</span>
+                    <span class="text-slate-400 text-xs">{{ cls.student_count }}</span>
+                </td>
+                <td class="px-6 py-3.5">
+                    <a href="{% url 'dashboard:class_palmares' year.pk cls.pk %}"
+                       class="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors">
+                        Palmarès
+                        <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="px-6 py-10 text-center text-sm text-slate-400">
+                    Aucune classe pour cette année.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

@@ -1,0 +1,127 @@
+<!-- Table -->
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <table class="w-full text-sm">
+        <thead class="bg-slate-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Nom complet</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Résultats</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for student in page_obj %}
+            <tr class="hover:bg-slate-50/70 transition-colors">
+                <td class="px-6 py-3.5">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+                            {{ student.full_name|first|upper }}
+                        </div>
+                        <a href="{% url 'academics:student_detail' student.pk %}"
+                           class="font-medium text-slate-900 hover:text-blue-600 transition-colors">
+                            {{ student.full_name }}
+                        </a>
+                    </div>
+                </td>
+                <td class="px-6 py-3.5">
+                    <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                        {{ student.grade_count }} résultat{{ student.grade_count|pluralize }}
+                    </span>
+                </td>
+                <td class="px-6 py-3.5">
+                    <a href="{% url 'academics:student_detail' student.pk %}"
+                       class="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors">
+                        Voir le profil
+                        <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3" class="px-6 py-12 text-center">
+                    <div class="flex flex-col items-center gap-3">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+                            <svg class="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-slate-700">Aucun élève trouvé</p>
+                            <p class="text-xs text-slate-400 mt-0.5">Essayez avec un autre terme de recherche</p>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% with page_obj as p %}
+{% if p.has_other_pages %}
+<nav class="mt-4 flex items-center justify-between">
+    <p class="text-xs text-slate-500">
+        Page {{ p.number }} sur {{ p.paginator.num_pages }}
+        <span class="text-slate-400">({{ p.paginator.count }} élève{{ p.paginator.count|pluralize }})</span>
+    </p>
+    <div class="flex items-center gap-1">
+        {% if p.has_previous %}
+        <a href="?page={{ p.previous_page_number }}{% if query %}&q={{ query }}{% endif %}"
+           hx-get="{% url 'academics:student_list' %}?page={{ p.previous_page_number }}{% if query %}&q={{ query }}{% endif %}"
+           hx-target="#student-container"
+           hx-swap="innerHTML"
+           hx-push-url="true"
+           class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+            </svg>
+        </a>
+        {% else %}
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+            </svg>
+        </span>
+        {% endif %}
+
+        {% for num in p.paginator.page_range %}
+            {% if p.number == num %}
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-xs font-semibold text-white">
+                {{ num }}
+            </span>
+            {% elif num >= p.number|add:"-2" and num <= p.number|add:"2" %}
+            <a href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}"
+               hx-get="{% url 'academics:student_list' %}?page={{ num }}{% if query %}&q={{ query }}{% endif %}"
+               hx-target="#student-container"
+               hx-swap="innerHTML"
+               hx-push-url="true"
+               class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs text-slate-600 hover:bg-slate-50 transition-colors">
+                {{ num }}
+            </a>
+            {% endif %}
+        {% endfor %}
+
+        {% if p.has_next %}
+        <a href="?page={{ p.next_page_number }}{% if query %}&q={{ query }}{% endif %}"
+           hx-get="{% url 'academics:student_list' %}?page={{ p.next_page_number }}{% if query %}&q={{ query }}{% endif %}"
+           hx-target="#student-container"
+           hx-swap="innerHTML"
+           hx-push-url="true"
+           class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+        </a>
+        {% else %}
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+        </span>
+        {% endif %}
+    </div>
+</nav>
+{% endif %}
+{% endwith %}

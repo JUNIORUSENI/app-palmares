@@ -1,0 +1,24 @@
+<div class="flex items-center gap-2">
+    {% if grade.percentage is not None %}
+    <!-- Mini progress bar colorée -->
+    <div class="relative flex-1 max-w-24 h-1.5 overflow-hidden rounded-full bg-slate-100">
+        <div class="h-1.5 rounded-full transition-all
+            {% if grade.percentage >= 70 %}bg-green-500
+            {% elif grade.percentage >= 50 %}bg-yellow-500
+            {% else %}bg-red-500{% endif %}"
+             style="width: {{ grade.percentage|floatformat:0 }}%"></div>
+    </div>
+    {% endif %}
+    <!-- Valeur cliquable pour édition inline -->
+    <span hx-get="{% url 'academics:grade_edit_inline' grade.pk %}"
+          hx-trigger="click"
+          hx-target="#grade-cell-{{ grade.pk }}"
+          hx-swap="innerHTML"
+          class="cursor-pointer font-mono text-sm font-medium hover:bg-yellow-50 hover:text-yellow-900 px-1.5 py-0.5 rounded transition-colors border border-transparent hover:border-yellow-200"
+          title="Cliquer pour modifier">
+        {% if grade.percentage is not None %}{{ grade.percentage }}%{% else %}<span class="text-slate-400">—</span>{% endif %}
+    </span>
+    {% if error %}
+    <span class="text-xs text-red-600 font-medium">{{ error }}</span>
+    {% endif %}
+</div>

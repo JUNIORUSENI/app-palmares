@@ -1,0 +1,23 @@
+<button hx-post="{% url 'academics:grade_verify' grade.pk %}"
+        hx-target="#verify-badge-{{ grade.pk }}"
+        hx-swap="innerHTML"
+        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+        class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border transition-all
+               {% if grade.is_verified %}
+                   bg-green-50 text-green-700 border-green-200 hover:bg-green-100
+               {% else %}
+                   bg-slate-100 text-slate-500 border-slate-200 hover:bg-green-50 hover:text-green-700 hover:border-green-200
+               {% endif %}"
+        title="{% if grade.is_verified %}Vérifié par {{ grade.verified_by }} — Cliquer pour retirer{% else %}Cliquer pour marquer comme vérifié{% endif %}">
+    {% if grade.is_verified %}
+    <svg class="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+    </svg>
+    Vérifié
+    {% else %}
+    <svg class="h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+    </svg>
+    À vérifier
+    {% endif %}
+</button>

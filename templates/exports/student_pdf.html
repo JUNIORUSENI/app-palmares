@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Relevé de résultats — {{ student.full_name }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 11px; color: #1e293b; margin: 20mm; }
+        h1 { font-size: 18px; color: #1e40af; border-bottom: 2px solid #1e40af; padding-bottom: 6px; }
+        .meta { color: #64748b; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { background: #1e40af; color: white; }
+        thead th { padding: 8px 10px; text-align: left; }
+        tbody tr:nth-child(even) { background: #f8fafc; }
+        tbody td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: bold; }
+        .admis { background: #dcfce7; color: #16a34a; }
+        .ajourn { background: #fee2e2; color: #dc2626; }
+        .footer { margin-top: 20px; text-align: center; color: #94a3b8; font-size: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Relevé de résultats</h1>
+    <p class="meta">Élève : <strong>{{ student.full_name }}</strong></p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Année</th>
+                <th>Classe</th>
+                <th>Section</th>
+                <th>Pourcentage</th>
+                <th>Statut</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for grade in grades %}
+            <tr>
+                <td><strong>{{ grade.academic_year }}</strong></td>
+                <td>{{ grade.classroom.name }}</td>
+                <td>{{ grade.classroom.section }}</td>
+                <td style="font-family:monospace">{{ grade.percentage }}%</td>
+                <td>
+                    {% if grade.percentage >= 50 %}
+                    <span class="badge admis">Admis</span>
+                    {% else %}
+                    <span class="badge ajourn">Ajourné</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="footer">Document généré automatiquement — Système de gestion des palmarès scolaires</div>
+</body>
+</html>
