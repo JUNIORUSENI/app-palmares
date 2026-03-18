@@ -102,6 +102,7 @@ def student_chart_data(request, student_pk):
     grades = (
         student.grades
         .select_related('academic_year')
+        .filter(percentage__isnull=False)
         .order_by('academic_year__label')
     )
     data = {

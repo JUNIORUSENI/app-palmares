@@ -1,0 +1,105 @@
+<!-- En-tête de la classe -->
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <h2 class="text-base font-semibold text-slate-900">{{ classroom.name }}</h2>
+        <p class="text-xs text-slate-500">{{ classroom.section }} — {{ year }}</p>
+    </div>
+    <!-- Statistiques rapides -->
+    <div class="flex flex-wrap items-center gap-2">
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-sm">
+            <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+            {{ total }} résultat{{ total|pluralize }}
+        </span>
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700 shadow-sm">
+            <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
+            {{ passed }} admis — {{ pass_rate }}%
+        </span>
+        {% if unverified %}
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 shadow-sm">
+            <span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
+            {{ unverified }} non vérifié{{ unverified|pluralize }}
+        </span>
+        {% else %}
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700 shadow-sm">
+            <svg class="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+            </svg>
+            Tout vérifié
+        </span>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Tableau des résultats -->
+<div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <table class="w-full text-sm">
+        <thead class="bg-slate-50 border-b border-slate-100">
+            <tr>
+                <th class="w-12 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">#</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Nom complet</th>
+                <th class="w-56 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Pourcentage
+                    <span class="ml-1 font-normal normal-case text-slate-400">(cliquer pour modifier)</span>
+                </th>
+                <th class="w-28 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Statut</th>
+                <th class="w-32 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vérifié</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for grade in grades %}
+            <tr class="hover:bg-slate-50/60 transition-colors">
+
+                <!-- Rang -->
+                <td class="px-4 py-3 text-xs text-slate-400 font-medium">{{ forloop.counter }}</td>
+
+                <!-- Nom (lien vers le détail) -->
+                <td class="px-4 py-3">
+                    <a href="{% url 'academics:student_detail' grade.student.pk %}"
+                       class="font-medium text-slate-900 hover:text-blue-600 transition-colors">
+                        {{ grade.student.full_name }}
+                    </a>
+                </td>
+
+                <!-- Pourcentage — édition inline HTMX -->
+                <td class="px-4 py-3" id="grade-cell-{{ grade.pk }}">
+                    {% include "academics/partials/grade_cell.html" %}
+                </td>
+
+                <!-- Statut -->
+                <td class="px-4 py-3">
+                    {% if grade.percentage is None %}
+                    <span class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500">
+                        <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                        Non noté
+                    </span>
+                    {% elif grade.percentage >= 50 %}
+                    <span class="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                        <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
+                        Admis
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700">
+                        <span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                        Ajourné
+                    </span>
+                    {% endif %}
+                </td>
+
+                <!-- Badge vérification — HTMX toggle -->
+                <td class="px-4 py-3">
+                    <span id="verify-badge-{{ grade.pk }}">
+                        {% include "academics/partials/verify_badge.html" %}
+                    </span>
+                </td>
+
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" class="px-4 py-12 text-center text-sm text-slate-400">
+                    Aucun résultat pour cette classe et cette année.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

@@ -1,5 +1,6 @@
 import pandas as pd
 from decimal import Decimal, InvalidOperation
+from django.db import transaction
 
 EXPECTED_COLUMNS = {'Nom complet', 'Pourcentage', 'Classe', 'Section', 'Année scolaire'}
 
@@ -92,6 +93,7 @@ def do_import(file_path, source_file_obj, task=None):
     """
     Importe les données du fichier en base de données.
     `task` est la tâche Celery (optionnel) pour mettre à jour la progression.
+    L'import est enveloppé dans une transaction atomique pour garantir la cohérence.
     """
     from apps.academics.models import AcademicYear, ClassRoom, Student, GradeRecord
 
@@ -101,38 +103,39 @@ def do_import(file_path, source_file_obj, task=None):
     skipped = 0
     last_year = None
 
-    for i, row in enumerate(df.to_dict('records'), start=2):
-        cleaned, errors = _validate_row(row, i)
-        if errors:
-            skipped += 1
-            continue
+    with transaction.atomic():
+        for i, row in enumerate(df.to_dict('records'), start=2):
+            cleaned, errors = _validate_row(row, i)
+            if errors:
+                skipped += 1
+                continue
 
-        year, _ = AcademicYear.objects.get_or_create(label=cleaned['year_label'])
-        last_year = year
-        classroom, _ = ClassRoom.objects.get_or_create(
-            name=cleaned['classroom_name'],
-            defaults={'section': cleaned['section']},
-        )
-        student, _ = Student.objects.get_or_create(full_name=cleaned['full_name'])
-
-        GradeRecord.objects.update_or_create(
-            student=student,
-            classroom=classroom,
-            academic_year=year,
-            defaults={
-                'percentage': cleaned['percentage'],
-                'source_file': source_file_obj,
-            },
-        )
-        imported += 1
-
-        if task and i % 50 == 0:
-            task.update_state(
-                state='PROGRESS',
-                meta={'current': imported, 'total': total},
+            year, _ = AcademicYear.objects.get_or_create(label=cleaned['year_label'])
+            last_year = year
+            classroom, _ = ClassRoom.objects.get_or_create(
+                name=cleaned['classroom_name'],
+                defaults={'section': cleaned['section']},
             )
+            student, _ = Student.objects.get_or_create(full_name=cleaned['full_name'])
 
-    # Rattache l'année scolaire au SourceFile
+            GradeRecord.objects.update_or_create(
+                student=student,
+                classroom=classroom,
+                academic_year=year,
+                defaults={
+                    'percentage': cleaned['percentage'],
+                    'source_file': source_file_obj,
+                },
+            )
+            imported += 1
+
+            if task and i % 50 == 0:
+                task.update_state(
+                    state='PROGRESS',
+                    meta={'current': imported, 'total': total},
+                )
+
+    # Rattache l'année scolaire au SourceFile (hors transaction pour ne pas bloquer en cas d'erreur)
     if last_year and not source_file_obj.academic_year_id:
         source_file_obj.academic_year = last_year
         source_file_obj.save(update_fields=['academic_year'])

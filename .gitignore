@@ -1,5 +1,7 @@
 # Secrets
 .env
+.env.*
+!.env.example
 
 # Python
 __pycache__/
@@ -15,13 +17,13 @@ build/
 # Django
 staticfiles/
 media/
+logs/
 *.log
 
 # Database
 *.sqlite3
 
-# Docker
-.dockerignore
+# Docker (volumes, etc.)
 
 # OS
 .DS_Store
@@ -41,3 +43,6 @@ htmlcov/
 *.xlsx
 *.xls
 *.csv
+
+# Claude Code (settings locaux)
+.claude/settings.local.json

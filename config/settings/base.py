@@ -72,7 +72,10 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
-    'default': env.db('DATABASE_URL')
+    'default': {
+        **env.db('DATABASE_URL'),
+        'CONN_MAX_AGE': env.int('CONN_MAX_AGE', default=600),
+    }
 }
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -90,7 +93,16 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Django 5.x : utiliser STORAGES au lieu de STATICFILES_STORAGE
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -109,6 +121,10 @@ CELERY_TIMEZONE = TIME_ZONE
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
+
+# Sessions
+SESSION_COOKIE_AGE = 60 * 60 * 12  # 12 heures
+SESSION_SAVE_EVERY_REQUEST = True
 
 # Taille max fichier upload (50 MB)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800

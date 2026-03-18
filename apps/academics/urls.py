@@ -12,4 +12,6 @@ urlpatterns = [
     path('grades/<int:pk>/cell/', views.grade_cell, name='grade_cell'),
     path('students/<int:pk>/name/edit/', views.student_name_edit, name='student_name_edit'),
     path('students/<int:pk>/name/', views.student_name_display, name='student_name_display'),
+    path('resultats/', views.results_index, name='results_index'),
+    path('resultats/<int:year_pk>/<int:class_pk>/', views.results_table, name='results_table'),
 ]

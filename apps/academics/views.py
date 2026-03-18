@@ -3,10 +3,21 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
-from django.db.models import Count
+from django.db.models import Count, F
 from django.core.paginator import Paginator
+import json
 
 from apps.accounts.mixins import editor_required
+
+
+def _safe_json(data):
+    return (
+        json.dumps(data)
+        .replace('<', r'\u003c')
+        .replace('>', r'\u003e')
+        .replace('&', r'\u0026')
+    )
+
 from apps.audit.utils import log_action
 from .models import Student, GradeRecord, AcademicYear, ClassRoom
 
@@ -126,7 +137,7 @@ def grade_edit_inline(request, pk):
                     'grade': grade, 'error': 'Valeur invalide (0–100)'
                 })
 
-        old_value = float(grade.percentage)
+        old_value = float(grade.percentage) if grade.percentage is not None else None
         grade.percentage = value
         grade.is_verified = False
         grade.verified_by = None
@@ -135,7 +146,7 @@ def grade_edit_inline(request, pk):
 
         log_action(request.user, 'update', 'GradeRecord', grade.pk,
                    old_value={'percentage': old_value},
-                   new_value={'percentage': float(value)})
+                   new_value={'percentage': float(value) if value is not None else None})
 
         return render(request, 'academics/partials/grade_cell.html', {'grade': grade})
 
@@ -180,3 +191,60 @@ def student_name_display(request, pk):
     """Retourne le nom en mode lecture (pour annuler l'édition)."""
     student = get_object_or_404(Student, pk=pk)
     return render(request, 'academics/partials/student_name_display.html', {'student': student})
+
+
+@editor_required
+def results_index(request):
+    """Page Résultats : sélecteur année → section → classe."""
+    years = AcademicYear.objects.order_by('-label')
+    data = {}
+    for year in years:
+        classrooms = (
+            ClassRoom.objects
+            .filter(grades__academic_year=year)
+            .distinct()
+            .order_by('section', 'name')
+        )
+        sections = {}
+        for cls in classrooms:
+            sec = cls.section or 'Sans section'
+            sections.setdefault(sec, []).append({'id': cls.pk, 'name': cls.name})
+        if sections:
+            data[year.pk] = {'label': year.label, 'sections': sections}
+
+    years_list = [{'id': pk, 'label': v['label']} for pk, v in data.items()]
+    return render(request, 'academics/results_index.html', {
+        'years_list_json': _safe_json(years_list),
+        'data_json': _safe_json(data),
+    })
+
+
+@editor_required
+def results_table(request, year_pk, class_pk):
+    """Partial HTMX : tableau des résultats d'une classe pour une année."""
+    year = get_object_or_404(AcademicYear, pk=year_pk)
+    classroom = get_object_or_404(ClassRoom, pk=class_pk)
+
+    grades = (
+        GradeRecord.objects
+        .filter(academic_year=year, classroom=classroom)
+        .select_related('student', 'verified_by')
+        .order_by(F('percentage').desc(nulls_last=True), 'student__full_name')
+    )
+
+    total = grades.count()
+    graded_qs = grades.filter(percentage__isnull=False)
+    graded_count = graded_qs.count()
+    passed = graded_qs.filter(percentage__gte=50).count()
+    pass_rate = round(passed / graded_count * 100, 1) if graded_count else 0
+    unverified = grades.filter(is_verified=False).count()
+
+    return render(request, 'academics/partials/results_table.html', {
+        'year': year,
+        'classroom': classroom,
+        'grades': grades,
+        'total': total,
+        'passed': passed,
+        'pass_rate': pass_rate,
+        'unverified': unverified,
+    })

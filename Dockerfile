@@ -5,7 +5,8 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
+# Dépendances système (WeasyPrint, PostgreSQL, netcat pour healthcheck)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     gcc \
     netcat-openbsd \
@@ -18,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     libffi-dev \
     shared-mime-info \
     fonts-liberation \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -25,7 +27,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Créer les répertoires nécessaires
+RUN mkdir -p /app/logs /app/media /app/staticfiles
+
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+
+# Utilisateur non-root pour la sécurité
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+RUN chown -R appuser:appgroup /app
+USER appuser
 
 ENTRYPOINT ["/entrypoint.sh"]

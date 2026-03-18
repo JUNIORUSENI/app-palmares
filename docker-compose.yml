@@ -12,9 +12,12 @@ services:
     environment:
       - DB_HOST=db
       - DB_PORT=5432
+      - DJANGO_SETTINGS_MODULE=config.settings.dev
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   celery:
     build: .
@@ -27,9 +30,12 @@ services:
     environment:
       - DB_HOST=db
       - DB_PORT=5432
+      - DJANGO_SETTINGS_MODULE=config.settings.dev
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   db:
     image: postgres:16-alpine
@@ -41,11 +47,21 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:

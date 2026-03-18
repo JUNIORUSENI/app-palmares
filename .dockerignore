@@ -1,0 +1,55 @@
+# Git
+.git
+.gitignore
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.eggs
+dist
+build
+
+# IDE
+.vscode
+.idea
+*.swp
+
+# Tests
+.pytest_cache
+.coverage
+htmlcov
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files (ne pas inclure dans l'image)
+*.xlsx
+*.xls
+*.csv
+
+# Logs
+*.log
+logs/
+
+# Media uploads (montés en volume)
+media/
+
+# Static collectés (regénérés au build)
+staticfiles/
+
+# Docker
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# Documentation
+*.md
+LICENSE
