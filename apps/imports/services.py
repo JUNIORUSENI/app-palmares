@@ -45,6 +45,8 @@ def _validate_row(row, row_num):
         errors.append(f"Ligne {row_num} : Classe manquante")
 
     section = _clean_str(row.get('Section', ''))
+    if not section:
+        errors.append(f"Ligne {row_num} : Section manquante")
 
     year_label = _clean_str(row.get('Année scolaire', ''))
     if not year_label:
