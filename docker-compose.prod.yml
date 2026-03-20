@@ -81,8 +81,8 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - static_data:/app/staticfiles:ro
       - media_data:/app/media:ro
-    ports:
-      - "80:80"
+    expose:
+      - "80"
     depends_on:
       web:
         condition: service_healthy
