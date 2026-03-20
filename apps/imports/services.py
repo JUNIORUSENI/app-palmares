@@ -16,10 +16,14 @@ def _validate_row(row, row_num):
     errors = []
 
     full_name = str(row.get('Nom complet', '') or '').strip()
+    if full_name.lower() in ('nan', 'none'):
+        full_name = ''
     if not full_name:
         errors.append(f"Ligne {row_num} : Nom complet vide")
 
     percentage_raw = str(row.get('Pourcentage', '') or '').strip().replace(',', '.')
+    if percentage_raw.lower() in ('', 'nan', 'none', 'n/a', '-', '/'):
+        percentage_raw = ''
     percentage = None
     if percentage_raw:
         try:
@@ -31,11 +35,17 @@ def _validate_row(row, row_num):
             errors.append(f"Ligne {row_num} : Pourcentage invalide ({percentage_raw!r})")
 
     classroom_name = str(row.get('Classe', '') or '').strip()
+    if classroom_name.lower() in ('nan', 'none'):
+        classroom_name = ''
     if not classroom_name:
         errors.append(f"Ligne {row_num} : Classe vide")
 
     section = str(row.get('Section', '') or '').strip()
+    if section.lower() in ('nan', 'none'):
+        section = ''
     year_label = str(row.get('Année scolaire', '') or '').strip()
+    if year_label.lower() in ('nan', 'none'):
+        year_label = ''
 
     cleaned = {
         'full_name': full_name,
