@@ -162,6 +162,48 @@ def grade_cell(request, pk):
 
 
 @editor_required
+@require_http_methods(['DELETE'])
+def grade_delete(request, pk):
+    grade = get_object_or_404(
+        GradeRecord.objects.select_related('student', 'classroom', 'academic_year'),
+        pk=pk,
+    )
+    old_value = {
+        'student': grade.student.full_name,
+        'classroom': str(grade.classroom),
+        'academic_year': str(grade.academic_year),
+        'percentage': float(grade.percentage) if grade.percentage is not None else None,
+    }
+    log_action(request.user, 'delete', 'GradeRecord', grade.pk,
+               old_value=old_value, object_repr=str(grade))
+    grade.delete()
+    return render(request, 'academics/partials/grade_deleted_row.html')
+
+
+@editor_required
+@require_http_methods(['GET', 'POST'])
+def student_delete(request, pk):
+    student = get_object_or_404(Student, pk=pk)
+    grade_count = student.grades.count()
+
+    if request.method == 'POST':
+        old_value = {
+            'full_name': student.full_name,
+            'grade_count': grade_count,
+        }
+        log_action(request.user, 'delete', 'Student', student.pk,
+                   old_value=old_value, object_repr=student.full_name)
+        student.delete()  # CASCADE supprime aussi les GradeRecords
+        messages.success(request, f"L'élève « {student.full_name} » et ses {grade_count} résultat(s) ont été supprimés.")
+        return redirect('academics:student_list')
+
+    return render(request, 'academics/student_delete_confirm.html', {
+        'student': student,
+        'grade_count': grade_count,
+    })
+
+
+@editor_required
 @require_http_methods(['GET', 'POST'])
 def student_name_edit(request, pk):
     student = get_object_or_404(Student, pk=pk)

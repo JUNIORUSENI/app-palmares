@@ -1,8 +1,9 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_http_methods
 
 from apps.accounts.mixins import editor_required
+from apps.audit.utils import log_action
 from .models import SourceFile
 from .forms import SourceFileUploadForm
 from .tasks import task_dry_run, task_import
@@ -71,3 +72,33 @@ def import_status(request, pk):
     """Endpoint HTMX — polling de l'état d'un import."""
     source_file = get_object_or_404(SourceFile, pk=pk)
     return render(request, 'imports/partials/import_status.html', {'source_file': source_file})
+
+
+@editor_required
+@require_http_methods(['GET', 'POST'])
+def import_rollback(request, pk):
+    source_file = get_object_or_404(SourceFile, pk=pk)
+    grades = source_file.grade_records.all()
+    grade_count = grades.count()
+
+    if request.method == 'POST':
+        old_value = {
+            'original_filename': source_file.original_filename,
+            'academic_year': str(source_file.academic_year) if source_file.academic_year else None,
+            'grade_count': grade_count,
+            'imported_rows': source_file.imported_rows,
+        }
+        log_action(request.user, 'delete', 'SourceFile', source_file.pk,
+                   old_value=old_value, object_repr=source_file.original_filename)
+        grades.delete()
+        source_file.delete()
+        messages.success(
+            request,
+            f"Import « {source_file.original_filename} » annulé : {grade_count} résultat(s) supprimé(s)."
+        )
+        return redirect('imports:import_list')
+
+    return render(request, 'imports/import_rollback.html', {
+        'source_file': source_file,
+        'grade_count': grade_count,
+    })

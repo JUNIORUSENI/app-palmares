@@ -236,7 +236,28 @@ ss -tlnp
 # Seuls les ports 22 (SSH), 80 (HTTP), 443 (HTTPS) et 3000 (Dokploy) doivent être ouverts
 ```
 
-### 8.2 Sauvegardes automatiques de la base de données
+**Sécuriser le port Dokploy (3000)** — par défaut, Dokploy est accessible à tous. Restreignez l'accès avec un pare-feu :
+
+```bash
+# Autoriser uniquement votre IP pour Dokploy
+ufw allow from VOTRE_IP_LOCALE to any port 3000
+ufw deny 3000
+```
+
+### 8.2 Checklist post-déploiement
+
+Vérifiez les points suivants après chaque déploiement :
+
+- [ ] Le site répond sur `https://votre-domaine.com`
+- [ ] La page de connexion s'affiche correctement (CSS/JS chargés)
+- [ ] La connexion avec le super-utilisateur fonctionne
+- [ ] La recherche floue fonctionne (extension pg_trgm active)
+- [ ] Un import Excel fonctionne (worker Celery actif)
+- [ ] L'export PDF fonctionne (WeasyPrint opérationnel)
+- [ ] Les logs d'erreur sont vides : `docker exec palmares-stack-web-1 cat /app/logs/django_errors.log`
+- [ ] Le healthcheck Celery est vert : `docker exec palmares-stack-celery-1 celery -A config inspect ping`
+
+### 8.3 Sauvegardes automatiques de la base de données
 
 Créez un script de backup sur le VPS :
 
@@ -266,7 +287,7 @@ crontab -e
 0 3 * * * /root/backup-palmares.sh >> /var/log/palmares-backup.log 2>&1
 ```
 
-### 8.3 Restaurer un backup
+### 8.4 Restaurer un backup
 
 ```bash
 CONTAINER=$(docker ps -qf "name=db" --filter "ancestor=postgres:16-alpine" | head -1)
@@ -275,7 +296,50 @@ gunzip -c /root/backups/palmares/palmares_YYYYMMDD_HHMMSS.sql.gz | docker exec -
 
 ---
 
-## Étape 9 : Mises à jour futures
+## Étape 9 : Rollback en cas de problème
+
+Si un déploiement casse le site, voici comment revenir en arrière :
+
+### 9.1 Rollback du code (via Dokploy)
+
+1. Dans Dokploy, allez dans le service → **Deployments**
+2. Trouvez le déploiement précédent qui fonctionnait
+3. Cliquez **Rollback** sur ce déploiement
+
+### 9.2 Rollback manuel (via Git)
+
+```bash
+# Sur votre machine locale : revenir au commit précédent
+git log --oneline -5       # Trouvez le commit stable
+git revert HEAD            # Crée un nouveau commit qui annule le dernier
+git push origin main       # Pousse le revert
+```
+
+Puis dans Dokploy : **Redeploy**.
+
+### 9.3 Rollback de la base de données
+
+Si les migrations ont causé une perte de données :
+
+```bash
+# 1. Restaurer le dernier backup
+CONTAINER=$(docker ps -qf "name=db" --filter "ancestor=postgres:16-alpine" | head -1)
+LATEST_BACKUP=$(ls -tp /root/backups/palmares/*.sql.gz | head -1)
+echo "Restauration de $LATEST_BACKUP..."
+gunzip -c "$LATEST_BACKUP" | docker exec -i "$CONTAINER" psql -U palmares_user -d palmares_db
+
+# 2. Relancer le service web pour appliquer l'état correct
+docker restart palmares-stack-web-1
+```
+
+> **Important** : Faites toujours un backup AVANT de déployer une mise à jour avec migration :
+> ```bash
+> /root/backup-palmares.sh
+> ```
+
+---
+
+## Étape 10 : Mises à jour futures
 
 ### Déploiement automatique
 
@@ -349,21 +413,24 @@ Internet
     │
     ▼
 [Dokploy Traefik / Let's Encrypt]  ←── HTTPS (port 443)
-    │
+    │                                    SSL/TLS terminé ici
     ▼
-[Nginx]  ←── Port 80 (interne)
+[Nginx]  ←── Port 80 (interne uniquement)
+    │         gzip, rate limiting, CSP, headers sécurité
     │
-    ├── /static/  → fichiers statiques (cache 30j)
+    ├── /static/  → fichiers statiques (cache 30j, immutable)
     ├── /media/   → fichiers uploadés (cache 7j)
     └── /         → proxy vers Gunicorn
                         │
                         ▼
-                  [Gunicorn + Django]
+                  [Gunicorn + Django]  ←── 3 workers, timeout 120s
                         │
                   ┌─────┴─────┐
                   ▼           ▼
             [PostgreSQL]  [Redis]
                               │
                               ▼
-                        [Celery Worker]
+                        [Celery Worker]  ←── healthcheck actif
 ```
+
+> **Note** : Nginx écoute uniquement sur le port 80 en interne. Le SSL/TLS est géré par Dokploy (Traefik) qui fait le reverse proxy HTTPS → HTTP. C'est pourquoi `SECURE_PROXY_SSL_HEADER` est configuré dans Django pour reconnaître le header `X-Forwarded-Proto: https`.

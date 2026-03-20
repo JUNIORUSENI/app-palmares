@@ -10,7 +10,10 @@ echo "PostgreSQL ready."
 # Migrations et collectstatic uniquement pour le service web (pas Celery)
 if [ "$1" = "gunicorn" ] || echo "$1" | grep -q "runserver"; then
     echo "Running migrations..."
-    python manage.py migrate --noinput
+    if ! python manage.py migrate --noinput; then
+        echo "ERROR: Migrations failed! Aborting startup."
+        exit 1
+    fi
 
     echo "Collecting static files..."
     python manage.py collectstatic --noinput

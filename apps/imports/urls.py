@@ -11,4 +11,5 @@ urlpatterns = [
     path('<int:pk>/confirm/', views.import_confirm, name='import_confirm'),
     path('<int:pk>/progress/', views.import_progress, name='import_progress'),
     path('<int:pk>/status/', views.import_status, name='import_status'),
+    path('<int:pk>/rollback/', views.import_rollback, name='import_rollback'),
 ]
