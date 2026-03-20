@@ -12,17 +12,23 @@ def _load_dataframe(file_path):
     return df
 
 
+def _clean_str(value):
+    """Nettoie une valeur lue par pandas : les NaN deviennent chaîne vide."""
+    text = str(value or '').strip()
+    if text.lower() in ('nan', 'none'):
+        return ''
+    return text
+
+
 def _validate_row(row, row_num):
     errors = []
 
-    full_name = str(row.get('Nom complet', '') or '').strip()
-    if full_name.lower() in ('nan', 'none'):
-        full_name = ''
+    full_name = _clean_str(row.get('Nom complet', ''))
     if not full_name:
-        errors.append(f"Ligne {row_num} : Nom complet vide")
+        errors.append(f"Ligne {row_num} : Nom complet manquant")
 
-    percentage_raw = str(row.get('Pourcentage', '') or '').strip().replace(',', '.')
-    if percentage_raw.lower() in ('', 'nan', 'none', 'n/a', '-', '/'):
+    percentage_raw = _clean_str(row.get('Pourcentage', '')).replace(',', '.')
+    if percentage_raw.lower() in ('', 'n/a', '-', '/'):
         percentage_raw = ''
     percentage = None
     if percentage_raw:
@@ -34,18 +40,15 @@ def _validate_row(row, row_num):
         except InvalidOperation:
             errors.append(f"Ligne {row_num} : Pourcentage invalide ({percentage_raw!r})")
 
-    classroom_name = str(row.get('Classe', '') or '').strip()
-    if classroom_name.lower() in ('nan', 'none'):
-        classroom_name = ''
+    classroom_name = _clean_str(row.get('Classe', ''))
     if not classroom_name:
-        errors.append(f"Ligne {row_num} : Classe vide")
+        errors.append(f"Ligne {row_num} : Classe manquante")
 
-    section = str(row.get('Section', '') or '').strip()
-    if section.lower() in ('nan', 'none'):
-        section = ''
-    year_label = str(row.get('Année scolaire', '') or '').strip()
-    if year_label.lower() in ('nan', 'none'):
-        year_label = ''
+    section = _clean_str(row.get('Section', ''))
+
+    year_label = _clean_str(row.get('Année scolaire', ''))
+    if not year_label:
+        errors.append(f"Ligne {row_num} : Année scolaire manquante")
 
     cleaned = {
         'full_name': full_name,
