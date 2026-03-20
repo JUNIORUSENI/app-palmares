@@ -36,6 +36,10 @@ RUN chmod +x /entrypoint.sh
 # Utilisateur non-root pour la sécurité
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 RUN chown -R appuser:appgroup /app
-USER appuser
 
+# gosu pour drop de privileges dans l'entrypoint
+RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/*
+
+# L'entrypoint démarre en root pour fixer les permissions des volumes,
+# puis bascule sur appuser via gosu.
 ENTRYPOINT ["/entrypoint.sh"]
