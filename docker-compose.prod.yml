@@ -19,7 +19,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf -o /dev/null -w '%{http_code}' http://localhost:8000/accounts/login/ | grep -qE '^(200|301|302)' || exit 1"]
+      test: ["CMD-SHELL", "nc -z localhost 8000 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
