@@ -124,9 +124,13 @@
                 <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-2.5 rounded-full bg-amber-400"></span>Moyenne</span>
             </div>
         </div>
-        <div class="relative h-56">
+        {% if trend_has_data %}
+        <div class="relative h-64">
             <canvas id="trendChart"></canvas>
         </div>
+        {% else %}
+        <div class="flex h-40 items-center justify-center rounded-lg bg-slate-50 text-sm text-slate-400">Aucune donnée disponible</div>
+        {% endif %}
     </div>
 
     <!-- Vérification par année (1/3) -->
@@ -135,9 +139,13 @@
             <h2 class="text-sm font-semibold text-slate-900">Vérification par année</h2>
             <p class="mt-0.5 text-xs text-slate-500">Résultats vérifiés vs non vérifiés</p>
         </div>
-        <div class="relative h-56">
+        {% if verify_has_data %}
+        <div class="relative h-64">
             <canvas id="verifyChart"></canvas>
         </div>
+        {% else %}
+        <div class="flex h-40 items-center justify-center rounded-lg bg-slate-50 text-sm text-slate-400">Aucune donnée disponible</div>
+        {% endif %}
     </div>
 </div>
 
@@ -152,9 +160,13 @@
             <h2 class="text-sm font-semibold text-slate-900">Distribution des notes</h2>
             <p class="mt-0.5 text-xs text-slate-500">Répartition des pourcentages par tranche de 10%</p>
         </div>
-        <div class="relative h-52">
+        {% if dist_has_data %}
+        <div class="relative h-60">
             <canvas id="distributionChart"></canvas>
         </div>
+        {% else %}
+        <div class="flex h-40 items-center justify-center rounded-lg bg-slate-50 text-sm text-slate-400">Aucune donnée disponible</div>
+        {% endif %}
     </div>
 
     <!-- Réussite par section -->
@@ -163,9 +175,13 @@
             <h2 class="text-sm font-semibold text-slate-900">Réussite par section</h2>
             <p class="mt-0.5 text-xs text-slate-500">Taux de réussite et moyenne par filière</p>
         </div>
-        <div class="relative h-52">
+        {% if section_has_data %}
+        <div id="sectionChartContainer" class="relative" style="min-height:180px">
             <canvas id="sectionChart"></canvas>
         </div>
+        {% else %}
+        <div class="flex h-40 items-center justify-center rounded-lg bg-slate-50 text-sm text-slate-400">Aucune donnée disponible</div>
+        {% endif %}
     </div>
 </div>
 
@@ -180,9 +196,13 @@
             <h2 class="text-sm font-semibold text-slate-900">Top 10 classes</h2>
             <p class="mt-0.5 text-xs text-slate-500">Classées par moyenne générale (≥ 3 résultats)</p>
         </div>
-        <div class="relative h-64">
+        {% if top_classes_has_data %}
+        <div id="topClassesChartContainer" class="relative" style="min-height:180px">
             <canvas id="topClassesChart"></canvas>
         </div>
+        {% else %}
+        <div class="flex h-40 items-center justify-center rounded-lg bg-slate-50 text-sm text-slate-400">Aucune donnée disponible</div>
+        {% endif %}
     </div>
 
     <!-- Top 10 élèves -->
@@ -446,7 +466,7 @@
 
     // ── 1. Évolution annuelle (line) ──────────────────────────
     const trendCtx = document.getElementById('trendChart');
-    if (trendCtx && trendData.labels.length) {
+    if (trendCtx && trendData.labels.length) { try {
         new Chart(trendCtx, {
             type: 'line',
             data: {
@@ -497,12 +517,12 @@
                     y: { ...axisStyle(), min: 0, max: 100, ticks: { ...axisStyle().ticks, callback: v => v + '%' } }
                 }
             }
-        });
+        }); } catch(e) { console.error('trendChart:', e); }
     }
 
     // ── 2. Vérification par année (stacked bar) ───────────────
     const verifyCtx = document.getElementById('verifyChart');
-    if (verifyCtx && verifyData.labels.length) {
+    if (verifyCtx && verifyData.labels.length) { try {
         new Chart(verifyCtx, {
             type: 'bar',
             data: {
@@ -533,12 +553,12 @@
                     y: { ...axisStyle(), stacked: true }
                 }
             }
-        });
+        }); } catch(e) { console.error('verifyChart:', e); }
     }
 
     // ── 3. Distribution des notes (bar histogram) ─────────────
     const distCtx = document.getElementById('distributionChart');
-    if (distCtx && distData.labels.length) {
+    if (distCtx && distData.labels.length) { try {
         const distColors = distData.labels.map((_, i) =>
             i < 5 ? `rgba(239,68,68,${0.4 + i * 0.08})` : `rgba(34,197,94,${0.4 + (i - 5) * 0.1})`
         );
@@ -564,13 +584,14 @@
                     y: { ...axisStyle(), ticks: { ...axisStyle().ticks, stepSize: 1 } }
                 }
             }
-        });
+        }); } catch(e) { console.error('distributionChart:', e); }
     }
 
     // ── 4. Réussite par section (horizontal bar) ──────────────
     const sectionCtx = document.getElementById('sectionChart');
     if (sectionCtx && sectionData.labels.length) {
-        new Chart(sectionCtx, {
+        sectionCtx.parentElement.style.height = Math.max(180, sectionData.labels.length * 52) + 'px';
+        try { new Chart(sectionCtx, {
             type: 'bar',
             data: {
                 labels: sectionData.labels,
@@ -602,12 +623,13 @@
                     y: axisStyle(),
                 }
             }
-        });
+        }); } catch(e) { console.error('sectionChart:', e); }
     }
 
     // ── 5. Top 10 classes (horizontal bar) ───────────────────
     const topClassesCtx = document.getElementById('topClassesChart');
     if (topClassesCtx && topClassesData.labels.length) {
+        topClassesCtx.parentElement.style.height = Math.max(180, topClassesData.labels.length * 52) + 'px';
         const topColors = topClassesData.values.map(v =>
             v >= 70 ? '#22c55e' : v >= 50 ? '#f59e0b' : '#ef4444'
         );
@@ -634,7 +656,7 @@
                     y: { ...axisStyle(), ticks: { color: '#64748b', font: { size: 10 } } }
                 }
             }
-        });
+        }); } catch(e) { console.error('topClassesChart:', e); }
     }
 })();
 </script>

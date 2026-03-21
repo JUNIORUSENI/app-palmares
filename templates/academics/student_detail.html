@@ -152,7 +152,7 @@
         <h2 class="text-sm font-semibold text-slate-900">Évolution des résultats</h2>
         <p class="mt-0.5 text-xs text-slate-500">Du plus ancien au plus récent</p>
     </div>
-    <div class="relative h-48">
+    <div class="relative h-64">
         <canvas id="evolutionChart"></canvas>
     </div>
 </div>
@@ -175,7 +175,7 @@
     const ctx = document.getElementById('evolutionChart');
     if (!ctx) return;
 
-    new Chart(ctx, {
+    try { new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
@@ -226,7 +226,7 @@
                 }
             }
         }
-    });
+    }); } catch(e) { console.error('evolutionChart:', e); }
 })();
 </script>
 {% endif %}
