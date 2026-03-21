@@ -379,6 +379,14 @@ function toastSystem() {
 function closeHelp() {
     document.getElementById('help-modal').style.display = 'none';
 }
+function showDeleteConfirm(pk) {
+    document.getElementById('delete-btn-' + pk).style.display = 'none';
+    document.getElementById('delete-confirm-' + pk).style.display = 'flex';
+}
+function hideDeleteConfirm(pk) {
+    document.getElementById('delete-btn-' + pk).style.display = 'flex';
+    document.getElementById('delete-confirm-' + pk).style.display = 'none';
+}
 function openSidebar() {
     document.getElementById('sidebar').classList.add('is-open');
     document.getElementById('sidebar-overlay').style.display = 'block';

@@ -10,16 +10,14 @@
 </div>
 
 {% if years_list %}
-<div class="max-w-xl"
-     x-data="exportSelector({{ export_data_json }})"
-     x-init="init()">
+<div class="max-w-xl">
 
     <!-- Sélecteur Année -->
     <div class="mb-5">
         <label class="mb-1.5 block text-sm font-medium text-slate-700">Année scolaire</label>
         <div class="relative">
-            <select x-model="selectedYear"
-                    @change="onYearChange()"
+            <select id="exp-year"
+                    onchange="onExpYearChange()"
                     class="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-4 pr-10 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
                 <option value="">— Choisir une année —</option>
                 {% for year in years_list %}
@@ -35,16 +33,13 @@
     </div>
 
     <!-- Sélecteur Section -->
-    <div class="mb-5" x-show="sections.length > 0" x-cloak>
+    <div id="exp-section-wrap" class="mb-5" style="display:none">
         <label class="mb-1.5 block text-sm font-medium text-slate-700">Section</label>
         <div class="relative">
-            <select x-model="selectedSection"
-                    @change="onSectionChange()"
+            <select id="exp-section"
+                    onchange="onExpSectionChange()"
                     class="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-4 pr-10 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
                 <option value="">— Choisir une section —</option>
-                <template x-for="section in sections" :key="section">
-                    <option :value="section" x-text="section"></option>
-                </template>
             </select>
             <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                 <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -55,15 +50,13 @@
     </div>
 
     <!-- Sélecteur Classe -->
-    <div class="mb-8" x-show="classrooms.length > 0" x-cloak>
+    <div id="exp-class-wrap" class="mb-8" style="display:none">
         <label class="mb-1.5 block text-sm font-medium text-slate-700">Classe</label>
         <div class="relative">
-            <select x-model="selectedClass"
+            <select id="exp-class"
+                    onchange="onExpClassChange()"
                     class="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-4 pr-10 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all">
                 <option value="">— Choisir une classe —</option>
-                <template x-for="cls in classrooms" :key="cls.id">
-                    <option :value="cls.id" x-text="cls.name"></option>
-                </template>
             </select>
             <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                 <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -73,31 +66,22 @@
         </div>
     </div>
 
-    <!-- Boutons d'export — apparaissent quand une classe est sélectionnée -->
-    <div x-show="selectedYear && selectedClass" x-cloak
-         x-transition:enter="transition ease-out duration-200"
-         x-transition:enter-start="opacity-0 translate-y-1"
-         x-transition:enter-end="opacity-100 translate-y-0"
+    <!-- Boutons d'export -->
+    <div id="exp-actions" style="display:none"
          class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-
         <div class="mb-4">
             <p class="text-sm font-semibold text-slate-900">Exporter le palmarès</p>
-            <p class="mt-0.5 text-xs text-slate-500"
-               x-text="selectedClassName + ' — ' + selectedYearLabel"></p>
+            <p id="exp-subtitle" class="mt-0.5 text-xs text-slate-500"></p>
         </div>
-
         <div class="flex items-center gap-3">
-            <!-- Export CSV -->
-            <a :href="csvUrl"
+            <a id="exp-csv-link" href="#"
                class="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-5 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm hover:bg-emerald-100 transition-colors">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                 </svg>
                 Télécharger CSV
             </a>
-
-            <!-- Export PDF -->
-            <a :href="pdfUrl"
+            <a id="exp-pdf-link" href="#"
                class="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-semibold text-red-700 shadow-sm hover:bg-red-100 transition-colors">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
@@ -142,64 +126,77 @@
 
 {% block extra_js %}
 <script>
-function exportSelector(data) {
-    return {
-        data: data,
-        selectedYear: '',
-        selectedSection: '',
-        selectedClass: '',
-        sections: [],
-        classrooms: [],
-        selectedYearLabel: '',
-        selectedClassName: '',
-        csvUrl: '#',
-        pdfUrl: '#',
+var _expData = {{ export_data_json }};
 
-        init() {},
+function onExpYearChange() {
+    var yearId = document.getElementById('exp-year').value;
+    var sectionWrap = document.getElementById('exp-section-wrap');
+    var classWrap   = document.getElementById('exp-class-wrap');
+    var actions     = document.getElementById('exp-actions');
+    var sectionSel  = document.getElementById('exp-section');
+    var classSel    = document.getElementById('exp-class');
 
-        onYearChange() {
-            this.selectedSection = '';
-            this.selectedClass = '';
-            this.classrooms = [];
-            this.selectedYearLabel = '';
+    sectionSel.innerHTML = '<option value="">— Choisir une section —</option>';
+    classSel.innerHTML   = '<option value="">— Choisir une classe —</option>';
+    sectionWrap.style.display = 'none';
+    classWrap.style.display   = 'none';
+    actions.style.display     = 'none';
 
-            if (!this.selectedYear || !this.data[this.selectedYear]) {
-                this.sections = [];
-                return;
-            }
-            const yearData = this.data[this.selectedYear];
-            this.selectedYearLabel = yearData.label;
-            this.sections = Object.keys(yearData.sections).sort();
-        },
+    if (!yearId || !_expData[yearId]) return;
 
-        onSectionChange() {
-            this.selectedClass = '';
-            this.selectedClassName = '';
+    var sections = Object.keys(_expData[yearId].sections).sort();
+    sections.forEach(function(sec) {
+        var opt = document.createElement('option');
+        opt.value = sec;
+        opt.textContent = sec;
+        sectionSel.appendChild(opt);
+    });
+    sectionWrap.style.display = 'block';
+}
 
-            if (!this.selectedSection) {
-                this.classrooms = [];
-                return;
-            }
-            const yearData = this.data[this.selectedYear];
-            this.classrooms = yearData.sections[this.selectedSection] || [];
-        },
+function onExpSectionChange() {
+    var yearId  = document.getElementById('exp-year').value;
+    var section = document.getElementById('exp-section').value;
+    var classWrap = document.getElementById('exp-class-wrap');
+    var classSel  = document.getElementById('exp-class');
+    var actions   = document.getElementById('exp-actions');
 
-        get csvUrl() {
-            if (!this.selectedYear || !this.selectedClass) return '#';
-            return `/exports/csv/palmares/${this.selectedYear}/${this.selectedClass}/`;
-        },
+    classSel.innerHTML = '<option value="">— Choisir une classe —</option>';
+    classWrap.style.display = 'none';
+    actions.style.display   = 'none';
 
-        get pdfUrl() {
-            if (!this.selectedYear || !this.selectedClass) return '#';
-            return `/exports/pdf/palmares/${this.selectedYear}/${this.selectedClass}/`;
-        },
+    if (!section || !_expData[yearId]) return;
 
-        get selectedClassName() {
-            if (!this.selectedClass) return '';
-            const cls = this.classrooms.find(c => c.id == this.selectedClass);
-            return cls ? cls.name : '';
-        },
+    var classes = _expData[yearId].sections[section] || [];
+    classes.forEach(function(cls) {
+        var opt = document.createElement('option');
+        opt.value = String(cls.id);
+        opt.textContent = cls.name;
+        classSel.appendChild(opt);
+    });
+    classWrap.style.display = 'block';
+}
+
+function onExpClassChange() {
+    var yearId   = document.getElementById('exp-year').value;
+    var section  = document.getElementById('exp-section').value;
+    var classId  = document.getElementById('exp-class').value;
+    var actions  = document.getElementById('exp-actions');
+
+    if (!yearId || !classId) {
+        actions.style.display = 'none';
+        return;
     }
+
+    var yearLabel = _expData[yearId] ? _expData[yearId].label : '';
+    var classes   = (_expData[yearId] && section) ? (_expData[yearId].sections[section] || []) : [];
+    var cls       = classes.find(function(c) { return String(c.id) === classId; });
+    var className = cls ? cls.name : '';
+
+    document.getElementById('exp-subtitle').textContent = className + ' — ' + yearLabel;
+    document.getElementById('exp-csv-link').href = '/exports/csv/palmares/' + yearId + '/' + classId + '/';
+    document.getElementById('exp-pdf-link').href = '/exports/pdf/palmares/' + yearId + '/' + classId + '/';
+    actions.style.display = 'block';
 }
 </script>
 {% endblock %}
