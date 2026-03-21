@@ -16,145 +16,170 @@
     </div>
 </div>
 
-<!-- Sélecteur cascadant -->
+<!-- Données injectées depuis Django -->
 <script>
     var _palmYears = {{ years_list_json|safe }};
     var _palmData  = {{ data_json|safe }};
 </script>
-<div x-data="resultsSelector(_palmYears, _palmData)">
 
-    <div class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+<!-- Sélecteur cascadant -->
+<div class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
 
-            <!-- Année scolaire -->
-            <div>
-                <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Année scolaire
-                </label>
-                <select x-model="selectedYearId"
-                        @change="onYearChange()"
-                        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    <option value="">— Sélectionner —</option>
-                    <template x-for="y in yearsList" :key="y.id">
-                        <option :value="String(y.id)" x-text="y.label"></option>
-                    </template>
-                </select>
-            </div>
+        <!-- Année scolaire -->
+        <div>
+            <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Année scolaire
+            </label>
+            <select id="year-select"
+                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                <option value="">— Sélectionner —</option>
+            </select>
+        </div>
 
-            <!-- Section -->
-            <div>
-                <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Section
-                </label>
-                <select x-model="selectedSection"
-                        @change="onSectionChange()"
-                        :disabled="!sections.length"
-                        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">
-                    <option value="">— Sélectionner —</option>
-                    <template x-for="sec in sections" :key="sec">
-                        <option :value="sec" x-text="sec"></option>
-                    </template>
-                </select>
-            </div>
+        <!-- Section -->
+        <div>
+            <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Section
+            </label>
+            <select id="section-select"
+                    disabled
+                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">
+                <option value="">— Sélectionner —</option>
+            </select>
+        </div>
 
-            <!-- Classe -->
-            <div>
-                <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Classe
-                </label>
-                <select x-model="selectedClassId"
-                        @change="loadTable()"
-                        :disabled="!classes.length"
-                        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">
-                    <option value="">— Sélectionner —</option>
-                    <template x-for="cls in classes" :key="cls.id">
-                        <option :value="String(cls.id)" x-text="cls.name"></option>
-                    </template>
-                </select>
-            </div>
+        <!-- Classe -->
+        <div>
+            <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Classe
+            </label>
+            <select id="class-select"
+                    disabled
+                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">
+                <option value="">— Sélectionner —</option>
+            </select>
         </div>
     </div>
+</div>
 
-    <!-- État vide -->
-    <div x-show="!selectedClassId"
-         x-transition:enter="transition ease-out duration-200"
-         x-transition:enter-start="opacity-0 translate-y-1"
-         x-transition:enter-end="opacity-100 translate-y-0"
-         class="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-20 text-center">
-        <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white border border-slate-200 shadow-sm">
-            <svg class="h-7 w-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0 1 12 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375Z" />
-            </svg>
-        </div>
-        <p class="text-sm font-medium text-slate-600">Aucune classe sélectionnée</p>
-        <p class="mt-1 text-xs text-slate-400">Choisissez une année, une section et une classe ci-dessus</p>
+<!-- État vide -->
+<div id="empty-state"
+     style="display:flex"
+     class="flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-20 text-center">
+    <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <svg class="h-7 w-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0 1 12 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375Z" />
+        </svg>
     </div>
+    <p class="text-sm font-medium text-slate-600">Aucune classe sélectionnée</p>
+    <p class="mt-1 text-xs text-slate-400">Choisissez une année, une section et une classe ci-dessus</p>
+</div>
 
-    <!-- Conteneur HTMX (rempli quand une classe est sélectionnée) -->
-    <div id="results-container" x-show="selectedClassId"
-         x-transition:enter="transition ease-out duration-200"
-         x-transition:enter-start="opacity-0"
-         x-transition:enter-end="opacity-100">
-        <!-- Le tableau se charge ici via HTMX -->
-        <div class="flex items-center justify-center py-16">
-            <svg class="h-6 w-6 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-        </div>
+<!-- Conteneur HTMX (rempli quand une classe est sélectionnée) -->
+<div id="results-container" style="display:none">
+    <div class="flex items-center justify-center py-16">
+        <svg class="h-6 w-6 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
     </div>
-
 </div>
 
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function resultsSelector(yearsList, fullData) {
-    return {
-        yearsList,
-        fullData,
-        selectedYearId: '',
-        selectedSection: '',
-        selectedClassId: '',
-        sections: [],
-        classes: [],
+(function() {
+    var yearSelect    = document.getElementById('year-select');
+    var sectionSelect = document.getElementById('section-select');
+    var classSelect   = document.getElementById('class-select');
+    var emptyState    = document.getElementById('empty-state');
+    var resultsContainer = document.getElementById('results-container');
 
-        onYearChange() {
-            this.selectedSection = '';
-            this.selectedClassId = '';
-            this.sections = [];
-            this.classes = [];
-            if (this.selectedYearId && this.fullData[this.selectedYearId]) {
-                this.sections = Object.keys(this.fullData[this.selectedYearId].sections);
-                if (this.sections.length === 1) {
-                    this.selectedSection = this.sections[0];
-                    this.onSectionChange();
-                }
-            }
-        },
+    var selectedYearId = '';
 
-        onSectionChange() {
-            this.selectedClassId = '';
-            this.classes = [];
-            if (this.selectedSection && this.fullData[this.selectedYearId]) {
-                this.classes = this.fullData[this.selectedYearId].sections[this.selectedSection] || [];
-                if (this.classes.length === 1) {
-                    this.selectedClassId = String(this.classes[0].id);
-                    this.$nextTick(() => this.loadTable());
-                }
-            }
-        },
+    // Peupler les années
+    _palmYears.forEach(function(y) {
+        var opt = document.createElement('option');
+        opt.value = String(y.id);
+        opt.textContent = y.label;
+        yearSelect.appendChild(opt);
+    });
 
-        loadTable() {
-            if (this.selectedYearId && this.selectedClassId) {
-                htmx.ajax('GET',
-                    `/academics/resultats/${this.selectedYearId}/${this.selectedClassId}/`,
-                    { target: '#results-container', swap: 'innerHTML' }
-                );
+    function onYearChange() {
+        selectedYearId = yearSelect.value;
+        // Réinitialiser section et classe
+        sectionSelect.innerHTML = '<option value="">— Sélectionner —</option>';
+        classSelect.innerHTML   = '<option value="">— Sélectionner —</option>';
+        sectionSelect.disabled  = true;
+        classSelect.disabled    = true;
+        updateVisibility(false);
+
+        if (selectedYearId && _palmData[selectedYearId]) {
+            var sections = Object.keys(_palmData[selectedYearId].sections);
+            sections.forEach(function(sec) {
+                var opt = document.createElement('option');
+                opt.value = sec;
+                opt.textContent = sec;
+                sectionSelect.appendChild(opt);
+            });
+            sectionSelect.disabled = false;
+            if (sections.length === 1) {
+                sectionSelect.value = sections[0];
+                onSectionChange();
             }
         }
-    };
-}
+    }
+
+    function onSectionChange() {
+        var selectedSection = sectionSelect.value;
+        classSelect.innerHTML = '<option value="">— Sélectionner —</option>';
+        classSelect.disabled  = true;
+        updateVisibility(false);
+
+        if (selectedSection && _palmData[selectedYearId]) {
+            var classes = _palmData[selectedYearId].sections[selectedSection] || [];
+            classes.forEach(function(cls) {
+                var opt = document.createElement('option');
+                opt.value = String(cls.id);
+                opt.textContent = cls.name;
+                classSelect.appendChild(opt);
+            });
+            classSelect.disabled = false;
+            if (classes.length === 1) {
+                classSelect.value = String(classes[0].id);
+                onClassChange();
+            }
+        }
+    }
+
+    function onClassChange() {
+        var selectedClassId = classSelect.value;
+        if (selectedYearId && selectedClassId) {
+            updateVisibility(true);
+            htmx.ajax('GET',
+                '/academics/resultats/' + selectedYearId + '/' + selectedClassId + '/',
+                { target: '#results-container', swap: 'innerHTML' }
+            );
+        } else {
+            updateVisibility(false);
+        }
+    }
+
+    function updateVisibility(showResults) {
+        if (showResults) {
+            emptyState.style.display    = 'none';
+            resultsContainer.style.display = 'block';
+        } else {
+            emptyState.style.display    = 'flex';
+            resultsContainer.style.display = 'none';
+        }
+    }
+
+    yearSelect.addEventListener('change', onYearChange);
+    sectionSelect.addEventListener('change', onSectionChange);
+    classSelect.addEventListener('change', onClassChange);
+})();
 </script>
 {% endblock extra_js %}
