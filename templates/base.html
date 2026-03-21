@@ -51,19 +51,43 @@
         .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
         .htmx-request .htmx-indicator { opacity: 1; }
         .htmx-request.htmx-indicator { opacity: 1; }
+        /* Sidebar responsive drawer */
+        .sidebar-drawer { transition: transform 0.3s ease-in-out; }
+        .sidebar-drawer.is-closed { transform: translateX(-100%); }
+        @media (min-width: 1024px) {
+            .sidebar-drawer, .sidebar-drawer.is-closed { transform: translateX(0) !important; }
+        }
+        /* Main content responsive margin */
+        .main-wrapper { margin-left: 0; }
+        @media (min-width: 1024px) { .main-wrapper { margin-left: 240px; } }
     </style>
 
     {% block extra_head %}{% endblock %}
 </head>
 <body class="h-full bg-slate-50 text-slate-900 antialiased"
-      x-data="toastSystem()"
+      x-data="{ helpOpen: false, sidebarOpen: false, ...toastSystem() }"
       hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-      @htmx:after-request.window="handleHtmxResponse($event)">
+      @htmx:after-request.window="handleHtmxResponse($event)"
+      @keydown.escape.window="helpOpen = false; sidebarOpen = false">
 
 <div class="flex h-full">
 
+    <!-- Overlay mobile (fond sombre derrière la sidebar) -->
+    <div x-show="sidebarOpen"
+         @click="sidebarOpen = false"
+         class="fixed inset-0 z-30 bg-black/50 lg:hidden"
+         x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0">
+    </div>
+
     <!-- ===== SIDEBAR ===== -->
-    <aside class="fixed inset-y-0 left-0 z-40 flex w-60 flex-col"
+    <aside class="sidebar-drawer fixed inset-y-0 left-0 z-40 flex w-60 flex-col"
+           :class="{ 'is-closed': !sidebarOpen }"
            style="background-color: #0f172a;">
 
         <!-- Logo -->
@@ -81,7 +105,8 @@
         </div>
 
         <!-- Navigation -->
-        <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
+        <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-0.5"
+             @click="if(window.innerWidth < 1024) sidebarOpen = false">
 
             <!-- Dashboard (éditeur + admin uniquement) -->
             {% if user.is_editor %}
@@ -214,10 +239,29 @@
     </aside>
 
     <!-- ===== MAIN WRAPPER ===== -->
-    <div class="flex min-h-full flex-1 flex-col" style="margin-left: 240px;">
+    <div class="main-wrapper flex min-h-full flex-1 flex-col">
 
         <!-- ===== HEADER ===== -->
-        <header class="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-end gap-3 border-b border-slate-200 bg-white/90 px-6 backdrop-blur-sm">
+        <header class="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white/90 px-4 sm:px-6 backdrop-blur-sm">
+            <div class="flex items-center gap-2">
+                <!-- Hamburger menu (mobile only) -->
+                <button @click="sidebarOpen = !sidebarOpen"
+                        class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition-colors lg:hidden"
+                        title="Menu">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                    </svg>
+                </button>
+                <!-- Bouton Aide -->
+                <button @click="helpOpen = true"
+                        class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                        title="Guide d'utilisation">
+                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
+                    </svg>
+                    <span class="hidden sm:inline">Aide</span>
+                </button>
+            </div>
             <!-- Badge rôle -->
             <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
                 <span class="h-1.5 w-1.5 rounded-full
@@ -230,7 +274,7 @@
         </header>
 
         <!-- ===== PAGE CONTENT ===== -->
-        <main class="flex-1 overflow-y-auto px-6 py-8">
+        <main class="flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8">
             {% block content %}{% endblock %}
         </main>
 
@@ -338,6 +382,192 @@ function toastSystem() {
 </script>
 
 {% block extra_js %}{% endblock %}
+
+<!-- ===== MODALE AIDE ===== -->
+<div x-show="helpOpen"
+     x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center p-4"
+     x-transition:enter="transition ease-out duration-200"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-150"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0">
+
+    <!-- Overlay -->
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="helpOpen = false"></div>
+
+    <!-- Panneau -->
+    <div class="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95">
+
+        <!-- En-tête modale -->
+        <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+            <div class="flex items-center gap-3">
+                <div class="flex h-9 w-9 items-center justify-center rounded-xl
+                    {% if user.is_admin %}bg-purple-100{% elif user.is_editor %}bg-blue-100{% else %}bg-green-100{% endif %}">
+                    <svg class="h-5 w-5 {% if user.is_admin %}text-purple-600{% elif user.is_editor %}text-blue-600{% else %}text-green-600{% endif %}"
+                         fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-base font-semibold text-slate-900">Guide d'utilisation</h2>
+                    <p class="text-xs text-slate-500">
+                        {% if user.is_admin %}Administrateur{% elif user.is_editor %}Éditeur{% else %}Lecteur{% endif %}
+                        — Palmarès Scolaires
+                    </p>
+                </div>
+            </div>
+            <button @click="helpOpen = false"
+                    class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Corps de la modale -->
+        <div class="px-6 py-6 space-y-6 text-sm text-slate-700">
+
+            <!-- ======= SECTION COMMUNE : NAVIGATION ======= -->
+            <div>
+                <h3 class="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                    </svg>
+                    Navigation générale
+                </h3>
+                <ul class="space-y-2">
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400"></span>
+                        La <strong>barre latérale gauche</strong> donne accès à toutes les sections selon votre rôle.
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400"></span>
+                        La <strong>barre de recherche</strong> (page Élèves) accepte les fautes de frappe — tapez le nom approximatif.
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400"></span>
+                        Les <strong>notifications</strong> apparaissent en bas à droite après chaque action.
+                    </li>
+                </ul>
+            </div>
+
+            <!-- ======= SECTION LECTEUR ======= -->
+            <div>
+                <h3 class="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-green-600">
+                    <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-100 text-green-600 text-xs font-bold">L</span>
+                    Consultation & Exports
+                    {% if not user.is_reader %}<span class="text-slate-300 normal-case tracking-normal font-normal">(disponible pour tous)</span>{% endif %}
+                </h3>
+                <ul class="space-y-2">
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-green-400"></span>
+                        <span><strong>Rechercher un élève :</strong> menu <em>Élèves</em> → saisir le nom dans la barre de recherche.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-green-400"></span>
+                        <span><strong>Voir la fiche d'un élève :</strong> cliquer sur son nom → historique complet + graphique d'évolution.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-green-400"></span>
+                        <span><strong>Consulter les classements :</strong> menu <em>Exports</em> → choisir une année / section / classe → voir le palmarès.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-green-400"></span>
+                        <span><strong>Exporter en PDF ou CSV :</strong> menu <em>Exports</em> → sélectionner les filtres → cliquer sur le bouton de téléchargement.</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- ======= SECTION ÉDITEUR ======= -->
+            {% if user.is_editor %}
+            <div class="border-t border-slate-100 pt-6">
+                <h3 class="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-600">
+                    <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-blue-600 text-xs font-bold">É</span>
+                    Édition & Imports
+                    {% if not user.is_admin %}<span class="text-slate-300 normal-case tracking-normal font-normal">(votre rôle)</span>{% endif %}
+                </h3>
+                <ul class="space-y-2">
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400"></span>
+                        <span><strong>Importer un fichier Excel :</strong> menu <em>Importations</em> → <em>Nouvel import</em> → glisser-déposer le fichier → lancer la vérification → consulter le rapport → confirmer l'import.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400"></span>
+                        <span><strong>Corriger une note :</strong> menu <em>Résultats</em> → choisir la classe → cliquer sur la note → modifier → sauvegarder. La vérification est réinitialisée automatiquement.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400"></span>
+                        <span><strong>Valider un résultat :</strong> cliquer sur le badge gris <em>À vérifier</em> → il passe en vert <em>Vérifié</em>. Cliquer à nouveau pour annuler.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400"></span>
+                        <span><strong>Modifier le nom d'un élève :</strong> fiche élève → cliquer sur le nom en haut → modifier en ligne → sauvegarder.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400"></span>
+                        <span><strong>Fusionner des doublons :</strong> fiche élève → bouton <em>Fusionner avec un autre élève</em> → rechercher le doublon → confirmer. Tous les résultats sont regroupés sous un seul profil.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400"></span>
+                        <span><strong>Annuler un import :</strong> menu <em>Importations</em> → trouver l'import → bouton <em>Annuler (rollback)</em>. Toutes les notes créées par cet import sont supprimées.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400"></span>
+                        <span><strong>Supprimer une note :</strong> fiche élève → icône corbeille sur la ligne concernée → confirmer.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400"></span>
+                        <span><strong>Supprimer un élève :</strong> fiche élève → bouton <em>Supprimer cet élève</em> → confirmer. Toutes ses notes sont également supprimées.</span>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
+
+            <!-- ======= SECTION ADMIN ======= -->
+            {% if user.is_admin %}
+            <div class="border-t border-slate-100 pt-6">
+                <h3 class="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-purple-600">
+                    <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-purple-100 text-purple-600 text-xs font-bold">A</span>
+                    Administration
+                    <span class="text-slate-300 normal-case tracking-normal font-normal">(votre rôle)</span>
+                </h3>
+                <ul class="space-y-2">
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-purple-400"></span>
+                        <span><strong>Gérer les utilisateurs :</strong> menu <em>Administration</em> (lien vers l'admin Django) → section <em>Accounts / Utilisateurs</em> → créer, modifier, changer le rôle ou désactiver un compte.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-purple-400"></span>
+                        <span><strong>Tableaux de bord globaux :</strong> menu <em>Statistiques</em> → KPIs, tendances, taux de réussite par section, palmarès des meilleurs élèves, activité par utilisateur.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-purple-400"></span>
+                        <span><strong>Journal d'audit :</strong> menu <em>Journal d'audit</em> → chaque modification est tracée (qui, quand, valeur avant/après).</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-purple-400"></span>
+                        <span><strong>Purger des données :</strong> via l'admin Django → sélectionner les enregistrements → action <em>Supprimer</em>. Cette action est irréversible.</span>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
+
+            <!-- Pied de modale -->
+            <div class="border-t border-slate-100 pt-4 text-xs text-slate-400 text-center">
+                Appuyez sur <kbd class="rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">Échap</kbd> ou cliquez à l'extérieur pour fermer.
+            </div>
+
+        </div>
+    </div>
+</div>
 
 </body>
 </html>

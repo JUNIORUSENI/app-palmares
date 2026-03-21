@@ -27,7 +27,7 @@
 <!-- ═══════════════════════════════════════════════════════════
      1. KPI CARDS
      ═══════════════════════════════════════════════════════════ -->
-<div class="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+<div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
     <!-- Total élèves -->
     <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -191,6 +191,7 @@
             <h2 class="text-sm font-semibold text-slate-900">Top 10 élèves</h2>
             <p class="mt-0.5 text-xs text-slate-500">Meilleure moyenne sur l'ensemble du parcours</p>
         </div>
+        <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="bg-slate-50">
                 <tr>
@@ -233,6 +234,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div><!-- /overflow-x-auto top10 -->
     </div>
 </div>
 
@@ -247,6 +249,7 @@
             <h2 class="text-sm font-semibold text-slate-900">Élèves à échecs répétés</h2>
             <p class="mt-0.5 text-xs text-slate-500">Ayant échoué au moins 2 fois</p>
         </div>
+        <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="bg-slate-50">
                 <tr>
@@ -281,6 +284,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div><!-- /overflow-x-auto echecs -->
     </div>
 
     <!-- Activité des utilisateurs -->
@@ -351,6 +355,7 @@
     </div>
 
     <!-- Imports récents -->
+    <div class="overflow-x-auto">
     <table class="w-full text-sm">
         <thead class="bg-slate-50">
             <tr>
@@ -402,6 +407,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div><!-- /overflow-x-auto imports -->
 </div>
 
 {% endblock %}
