@@ -65,10 +65,10 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body class="h-full bg-slate-50 text-slate-900 antialiased"
-      x-data="{ helpOpen: false, sidebarOpen: false, ...toastSystem() }"
+      x-data="{ sidebarOpen: false, ...toastSystem() }"
       hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
       @htmx:after-request.window="handleHtmxResponse($event)"
-      @keydown.escape.window="helpOpen = false; sidebarOpen = false">
+      @keydown.escape.window="sidebarOpen = false">
 
 <div class="flex h-full">
 
@@ -253,7 +253,7 @@
                     </svg>
                 </button>
                 <!-- Bouton Aide -->
-                <button @click="helpOpen = true"
+                <button onclick="document.getElementById('help-modal').style.display='flex'"
                         class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
                         title="Guide d'utilisation">
                     <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -383,26 +383,24 @@ function toastSystem() {
 
 {% block extra_js %}{% endblock %}
 
+<script>
+function closeHelp() {
+    document.getElementById('help-modal').style.display = 'none';
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeHelp();
+});
+</script>
+
 <!-- ===== MODALE AIDE ===== -->
-<div x-show="helpOpen"
-     x-cloak
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-     @click.self="helpOpen = false"
-     x-transition:enter="transition ease-out duration-200"
-     x-transition:enter-start="opacity-0"
-     x-transition:enter-end="opacity-100"
-     x-transition:leave="transition ease-in duration-150"
-     x-transition:leave-start="opacity-100"
-     x-transition:leave-end="opacity-0">
+<div id="help-modal"
+     style="display:none"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4"
+     onclick="if(event.target===this)closeHelp()">
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,0.5)" onclick="closeHelp()"></div>
 
     <!-- Panneau -->
-    <div class="relative z-10 w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
-         x-transition:enter="transition ease-out duration-200"
-         x-transition:enter-start="opacity-0 scale-95 translate-y-2"
-         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
-         x-transition:leave="transition ease-in duration-150"
-         x-transition:leave-start="opacity-100 scale-100"
-         x-transition:leave-end="opacity-0 scale-95">
+    <div class="relative z-10 w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
 
         <!-- En-tête modale -->
         <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
@@ -422,7 +420,7 @@ function toastSystem() {
                     </p>
                 </div>
             </div>
-            <button @click="helpOpen = false"
+            <button onclick="closeHelp()"
                     class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
