@@ -52,10 +52,10 @@
         .htmx-request .htmx-indicator { opacity: 1; }
         .htmx-request.htmx-indicator { opacity: 1; }
         /* Sidebar responsive drawer */
-        .sidebar-drawer { transition: transform 0.3s ease-in-out; }
-        .sidebar-drawer.is-closed { transform: translateX(-100%); }
+        .sidebar-drawer { transition: transform 0.3s ease-in-out; transform: translateX(-100%); }
+        .sidebar-drawer.is-open { transform: translateX(0); }
         @media (min-width: 1024px) {
-            .sidebar-drawer, .sidebar-drawer.is-closed { transform: translateX(0) !important; }
+            .sidebar-drawer { transform: translateX(0) !important; }
         }
         /* Main content responsive margin */
         .main-wrapper { margin-left: 0; }
@@ -65,29 +65,21 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body class="h-full bg-slate-50 text-slate-900 antialiased"
-      x-data="{ sidebarOpen: false, ...toastSystem() }"
+      x-data="{ ...toastSystem() }"
       hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-      @htmx:after-request.window="handleHtmxResponse($event)"
-      @keydown.escape.window="sidebarOpen = false">
+      @htmx:after-request.window="handleHtmxResponse($event)">
 
 <div class="flex h-full">
 
     <!-- Overlay mobile (fond sombre derrière la sidebar) -->
-    <div x-show="sidebarOpen"
-         @click="sidebarOpen = false"
-         class="fixed inset-0 z-30 bg-black/50 lg:hidden"
-         x-cloak
-         x-transition:enter="transition ease-out duration-200"
-         x-transition:enter-start="opacity-0"
-         x-transition:enter-end="opacity-100"
-         x-transition:leave="transition ease-in duration-150"
-         x-transition:leave-start="opacity-100"
-         x-transition:leave-end="opacity-0">
+    <div id="sidebar-overlay"
+         style="display:none"
+         onclick="closeSidebar()"
+         class="fixed inset-0 z-30 bg-black/50 lg:hidden">
     </div>
 
     <!-- ===== SIDEBAR ===== -->
-    <aside class="sidebar-drawer fixed inset-y-0 left-0 z-40 flex w-60 flex-col"
-           :class="{ 'is-closed': !sidebarOpen }"
+    <aside id="sidebar" class="sidebar-drawer fixed inset-y-0 left-0 z-40 flex w-60 flex-col"
            style="background-color: #0f172a;">
 
         <!-- Logo -->
@@ -106,7 +98,7 @@
 
         <!-- Navigation -->
         <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-0.5"
-             @click="if(window.innerWidth < 1024) sidebarOpen = false">
+             onclick="if(window.innerWidth < 1024) closeSidebar()">
 
             <!-- Dashboard (éditeur + admin uniquement) -->
             {% if user.is_editor %}
@@ -245,7 +237,7 @@
         <header class="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white/90 px-4 sm:px-6 backdrop-blur-sm">
             <div class="flex items-center gap-2">
                 <!-- Hamburger menu (mobile only) -->
-                <button @click="sidebarOpen = !sidebarOpen"
+                <button onclick="toggleSidebar()"
                         class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition-colors lg:hidden"
                         title="Menu">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -387,8 +379,20 @@ function toastSystem() {
 function closeHelp() {
     document.getElementById('help-modal').style.display = 'none';
 }
+function openSidebar() {
+    document.getElementById('sidebar').classList.add('is-open');
+    document.getElementById('sidebar-overlay').style.display = 'block';
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('is-open');
+    document.getElementById('sidebar-overlay').style.display = 'none';
+}
+function toggleSidebar() {
+    if (document.getElementById('sidebar').classList.contains('is-open')) closeSidebar();
+    else openSidebar();
+}
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeHelp();
+    if (e.key === 'Escape') { closeHelp(); closeSidebar(); }
 });
 </script>
 
