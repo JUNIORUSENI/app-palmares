@@ -1,5 +1,5 @@
 # Django
-Django==5.1.4
+Django==5.1.15
 django-environ==0.11.2
 
 # Database
@@ -23,7 +23,8 @@ whitenoise==6.8.2
 gunicorn==23.0.0
 
 # PDF generation
-weasyprint==63.0
+weasyprint==68.0
+pillow==12.1.1
 
 # Dev / testing
 pytest-django==4.9.0
