@@ -5,6 +5,7 @@ app_name = 'imports'
 
 urlpatterns = [
     path('', views.import_list, name='import_list'),
+    path('rows/', views.import_list_rows, name='import_list_rows'),
     path('upload/', views.import_upload, name='import_upload'),
     path('<int:pk>/dry-run/', views.import_dry_run, name='import_dry_run'),
     path('<int:pk>/dry-run/status/', views.import_dry_run_status, name='import_dry_run_status'),

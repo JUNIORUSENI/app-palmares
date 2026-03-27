@@ -37,6 +37,9 @@ class SourceFile(models.Model):
     dry_run_report = models.JSONField(default=dict, blank=True)
     import_report = models.JSONField(default=dict, blank=True)
 
+    # Lot d'import (plusieurs fichiers uploadés en une fois)
+    batch_id = models.UUIDField(null=True, blank=True, db_index=True)
+
     # Stats rapides
     total_rows = models.PositiveIntegerField(default=0)
     imported_rows = models.PositiveIntegerField(default=0)

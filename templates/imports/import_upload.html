@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Importer un fichier — Palmarès{% endblock %}
+{% block title %}Importer des fichiers — Palmarès{% endblock %}
 
 {% block content %}
 
@@ -9,16 +9,16 @@
     <svg class="h-4 w-4 shrink-0 text-slate-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
     </svg>
-    <span class="font-medium text-slate-900">Nouveau fichier</span>
+    <span class="font-medium text-slate-900">Nouveau lot</span>
 </nav>
 
 <!-- Page header -->
 <div class="mb-8">
-    <h1 class="text-2xl font-bold text-slate-900">Importer un fichier Excel</h1>
-    <p class="mt-1 text-sm text-slate-500">Le fichier sera analysé en dry-run avant toute insertion en base de données.</p>
+    <h1 class="text-2xl font-bold text-slate-900">Importer des fichiers Excel</h1>
+    <p class="mt-1 text-sm text-slate-500">Sélectionnez un ou plusieurs fichiers. Chaque fichier sera analysé individuellement avant toute insertion.</p>
 </div>
 
-<div class="max-w-xl">
+<div class="max-w-2xl">
 
     <!-- Info box colonnes attendues -->
     <div class="mb-6 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-5 py-4">
@@ -26,13 +26,13 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
         </svg>
         <div>
-            <p class="text-sm font-semibold text-blue-800">Colonnes attendues dans le fichier</p>
+            <p class="text-sm font-semibold text-blue-800">Colonnes attendues dans chaque fichier</p>
             <div class="mt-2 flex flex-wrap gap-1.5">
                 {% for col in columns %}
                 <span class="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-mono font-medium text-blue-700 border border-blue-200">{{ col }}</span>
                 {% endfor %}
             </div>
-            <p class="mt-2 text-xs text-blue-600">Format accepté : <strong>.xlsx</strong> (Excel 2007+)</p>
+            <p class="mt-2 text-xs text-blue-600">Format accepté : <strong>.xlsx</strong> — Max <strong>100 fichiers</strong>, <strong>20 Mo</strong> par fichier</p>
         </div>
     </div>
 
@@ -40,56 +40,56 @@
     <form id="upload-form"
           method="post"
           enctype="multipart/form-data"
-          onsubmit="onUploadSubmit()"
+          onsubmit="onUploadSubmit(event)"
           class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
         {% csrf_token %}
 
         <!-- Drop zone -->
         <div class="mb-5">
-            <label class="mb-2 block text-sm font-medium text-slate-700">Fichier Excel</label>
+            <label class="mb-2 block text-sm font-medium text-slate-700">Fichiers Excel</label>
 
             <div id="drop-zone"
-                 class="relative"
                  ondragover="onDragOver(event)"
                  ondragleave="onDragLeave(event)"
                  ondrop="onDrop(event)">
 
                 <label id="drop-label"
-                       for="{{ form.file.id_for_label }}"
-                       class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-10 transition-all hover:border-blue-300 hover:bg-blue-50/50">
+                       for="file-input"
+                       class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-8 transition-all hover:border-blue-300 hover:bg-blue-50/50">
 
-                    <!-- Icône upload -->
-                    <div id="upload-icon-wrap" class="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-200">
-                        <svg id="icon-upload" class="h-6 w-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-200">
+                        <svg class="h-6 w-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
-                        </svg>
-                        <svg id="icon-file" style="display:none" class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                         </svg>
                     </div>
 
-                    <p id="drop-label-text" class="text-sm font-medium text-slate-600">
-                        Glissez votre fichier ou cliquez pour sélectionner
-                    </p>
-                    <p id="drop-hint" class="mt-1 text-xs text-slate-400">Fichiers .xlsx uniquement</p>
+                    <p class="text-sm font-medium text-slate-600">Glissez vos fichiers ou cliquez pour sélectionner</p>
+                    <p class="mt-1 text-xs text-slate-400">Fichiers .xlsx uniquement — sélection multiple autorisée</p>
 
                     <input type="file"
-                           name="{{ form.file.html_name }}"
-                           id="{{ form.file.id_for_label }}"
-                           accept=".xlsx"
+                           name="file"
+                           id="file-input"
+                           accept=".xlsx,.xls"
+                           multiple
                            class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                           style="position:absolute;inset:0;width:100%;height:100%;cursor:pointer;opacity:0;"
                            onchange="onFileChange(event)">
                 </label>
             </div>
+        </div>
 
-            {% if form.file.errors %}
-            <p class="mt-2 flex items-center gap-1.5 text-xs text-red-600">
-                <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-                </svg>
-                {{ form.file.errors.0 }}
-            </p>
-            {% endif %}
+        <!-- Liste des fichiers sélectionnés -->
+        <div id="file-list" style="display:none" class="mb-5">
+            <div class="mb-2 flex items-center justify-between">
+                <p id="file-count" class="text-sm font-medium text-slate-700"></p>
+                <button type="button" onclick="clearFiles()"
+                        class="text-xs text-slate-400 hover:text-red-500 transition-colors">
+                    Tout retirer
+                </button>
+            </div>
+            <ul id="file-items" class="divide-y divide-slate-100 rounded-lg border border-slate-200 overflow-hidden max-h-64 overflow-y-auto"></ul>
+            <p id="file-size-total" class="mt-1.5 text-xs text-slate-400"></p>
+            <p id="file-error" style="display:none" class="mt-2 text-xs font-medium text-red-600"></p>
         </div>
 
         <!-- Submit -->
@@ -102,7 +102,7 @@
             <svg id="upload-icon-btn" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0 1 12 15a9.065 9.065 0 0 1-6.23-.693L5 14.5m14.8.8 1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0 1 12 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
             </svg>
-            <span id="upload-btn-text">Analyser le fichier</span>
+            <span id="upload-btn-text">Sélectionnez des fichiers</span>
         </button>
     </form>
 </div>
@@ -112,67 +112,152 @@
 {% block extra_js %}
 <script>
 (function() {
-    var dropLabel = document.getElementById('drop-label');
-    var dropHint  = document.getElementById('drop-hint');
-    var labelText = document.getElementById('drop-label-text');
-    var iconWrap  = document.getElementById('upload-icon-wrap');
-    var iconUp    = document.getElementById('icon-upload');
-    var iconFile  = document.getElementById('icon-file');
-    var uploadBtn = document.getElementById('upload-btn');
-    var fileInput = document.getElementById('{{ form.file.id_for_label }}');
+    var MAX_FILES = 100;
+    var MAX_SIZE  = 20 * 1024 * 1024; // 20 MB
 
-    function setFileSelected(name) {
-        labelText.textContent = name;
-        labelText.className = 'text-sm font-medium text-green-700';
-        dropHint.style.display = 'none';
-        iconWrap.className = 'mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100';
-        iconUp.style.display = 'none';
-        iconFile.style.display = 'block';
-        dropLabel.className = dropLabel.className.replace('border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50/50', 'border-green-300 bg-green-50');
-        uploadBtn.disabled = false;
+    var fileInput   = document.getElementById('file-input');
+    var dropLabel   = document.getElementById('drop-label');
+    var fileList    = document.getElementById('file-list');
+    var fileItems   = document.getElementById('file-items');
+    var fileCount   = document.getElementById('file-count');
+    var fileSizeTotal = document.getElementById('file-size-total');
+    var fileError   = document.getElementById('file-error');
+    var uploadBtn   = document.getElementById('upload-btn');
+    var uploadSpinner = document.getElementById('upload-spinner');
+    var uploadIconBtn = document.getElementById('upload-icon-btn');
+    var uploadBtnText = document.getElementById('upload-btn-text');
+
+    // DataTransfer pour maintenir la liste de fichiers
+    var dt = new DataTransfer();
+
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' o';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' Ko';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
     }
 
-    function setDragging(active) {
-        if (active) {
-            dropLabel.style.borderColor = '#60a5fa';
-            dropLabel.style.backgroundColor = '#eff6ff';
-        } else {
-            dropLabel.style.borderColor = '';
-            dropLabel.style.backgroundColor = '';
+    function renderFileList() {
+        fileItems.innerHTML = '';
+        var totalSize = 0;
+        var hasError = false;
+
+        for (var i = 0; i < dt.files.length; i++) {
+            var f = dt.files[i];
+            totalSize += f.size;
+            var ext = f.name.split('.').pop().toLowerCase();
+            var invalid = (ext !== 'xlsx' && ext !== 'xls') || f.size > MAX_SIZE;
+            if (invalid) hasError = true;
+
+            var li = document.createElement('li');
+            li.className = 'flex items-center justify-between gap-3 px-3 py-2 bg-white text-sm' + (invalid ? ' bg-red-50' : '');
+            li.innerHTML =
+                '<div class="flex items-center gap-2 min-w-0">' +
+                    '<svg class="h-4 w-4 shrink-0 ' + (invalid ? 'text-red-400' : 'text-green-500') + '" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">' +
+                        '<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />' +
+                    '</svg>' +
+                    '<span class="truncate font-medium ' + (invalid ? 'text-red-700' : 'text-slate-800') + '">' + escHtml(f.name) + '</span>' +
+                '</div>' +
+                '<div class="flex items-center gap-2 shrink-0">' +
+                    '<span class="text-xs text-slate-400">' + formatSize(f.size) + '</span>' +
+                    '<button type="button" data-index="' + i + '" onclick="removeFile(this)" ' +
+                        'class="text-slate-300 hover:text-red-500 transition-colors" title="Retirer">' +
+                        '<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">' +
+                            '<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />' +
+                        '</svg>' +
+                    '</button>' +
+                '</div>';
+            fileItems.appendChild(li);
         }
+
+        var n = dt.files.length;
+        fileCount.textContent = n + ' fichier' + (n > 1 ? 's' : '') + ' sélectionné' + (n > 1 ? 's' : '');
+        fileSizeTotal.textContent = 'Total : ' + formatSize(totalSize);
+
+        if (n > MAX_FILES) {
+            fileError.textContent = 'Maximum ' + MAX_FILES + ' fichiers autorisés.';
+            fileError.style.display = 'block';
+            hasError = true;
+        } else if (hasError) {
+            fileError.textContent = 'Certains fichiers sont invalides (format ou taille). Retirez-les avant de continuer.';
+            fileError.style.display = 'block';
+        } else {
+            fileError.style.display = 'none';
+        }
+
+        fileList.style.display = n > 0 ? 'block' : 'none';
+        uploadBtn.disabled = (n === 0 || hasError || n > MAX_FILES);
+        uploadBtnText.textContent = n === 0
+            ? 'Sélectionnez des fichiers'
+            : (n === 1 ? 'Analyser 1 fichier' : 'Analyser ' + n + ' fichiers');
     }
+
+    function escHtml(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function addFiles(files) {
+        for (var i = 0; i < files.length; i++) {
+            // Éviter les doublons par nom
+            var exists = false;
+            for (var j = 0; j < dt.files.length; j++) {
+                if (dt.files[j].name === files[i].name && dt.files[j].size === files[i].size) {
+                    exists = true; break;
+                }
+            }
+            if (!exists) dt.items.add(files[i]);
+        }
+        fileInput.files = dt.files;
+        renderFileList();
+    }
+
+    window.removeFile = function(btn) {
+        var idx = parseInt(btn.getAttribute('data-index'));
+        var newDt = new DataTransfer();
+        for (var i = 0; i < dt.files.length; i++) {
+            if (i !== idx) newDt.items.add(dt.files[i]);
+        }
+        dt = newDt;
+        fileInput.files = dt.files;
+        renderFileList();
+    };
+
+    window.clearFiles = function() {
+        dt = new DataTransfer();
+        fileInput.files = dt.files;
+        renderFileList();
+    };
 
     window.onFileChange = function(event) {
-        var file = event.target.files[0];
-        if (file) setFileSelected(file.name);
+        addFiles(event.target.files);
+        // Réinitialiser l'input pour permettre de re-sélectionner les mêmes fichiers
+        event.target.value = '';
     };
 
     window.onDragOver = function(event) {
         event.preventDefault();
-        setDragging(true);
+        dropLabel.style.borderColor = '#60a5fa';
+        dropLabel.style.backgroundColor = '#eff6ff';
     };
 
     window.onDragLeave = function(event) {
-        setDragging(false);
+        dropLabel.style.borderColor = '';
+        dropLabel.style.backgroundColor = '';
     };
 
     window.onDrop = function(event) {
         event.preventDefault();
-        setDragging(false);
-        var file = event.dataTransfer.files[0];
-        if (file) {
-            var dt = new DataTransfer();
-            dt.items.add(file);
-            fileInput.files = dt.files;
-            setFileSelected(file.name);
-        }
+        dropLabel.style.borderColor = '';
+        dropLabel.style.backgroundColor = '';
+        addFiles(event.dataTransfer.files);
     };
 
-    window.onUploadSubmit = function() {
+    window.onUploadSubmit = function(event) {
+        if (uploadBtn.disabled) { event.preventDefault(); return; }
         uploadBtn.disabled = true;
-        document.getElementById('upload-spinner').style.display = 'block';
-        document.getElementById('upload-icon-btn').style.display = 'none';
-        document.getElementById('upload-btn-text').textContent = 'Analyse en cours…';
+        uploadSpinner.style.display = 'block';
+        uploadIconBtn.style.display = 'none';
+        var n = dt.files.length;
+        uploadBtnText.textContent = n === 1 ? 'Analyse en cours…' : 'Envoi de ' + n + ' fichiers…';
     };
 })();
 </script>

@@ -1,36 +1,160 @@
+import os
+import uuid
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
+from django.urls import reverse
 from django.views.decorators.http import require_POST, require_http_methods
 
 from apps.accounts.mixins import editor_required
 from apps.audit.utils import log_action
 from .models import SourceFile
-from .forms import SourceFileUploadForm
 from .tasks import task_dry_run, task_import
+
+MAX_FILES = 100
+MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
+ALLOWED_EXTENSIONS = {'.xlsx', '.xls'}
+
+
+def _validate_uploaded_file(f):
+    """Retourne un message d'erreur ou None si valide."""
+    ext = os.path.splitext(f.name)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        return f"« {f.name} » : format non accepté (xlsx/xls uniquement)."
+    if f.size > MAX_FILE_SIZE:
+        return f"« {f.name} » : fichier trop volumineux (max 20 Mo)."
+    return None
 
 
 @editor_required
 def import_list(request):
+    batch_id = request.GET.get('batch')
     files = SourceFile.objects.select_related('academic_year', 'imported_by').all()
-    return render(request, 'imports/import_list.html', {'files': files})
+
+    batch_stats = None
+    if batch_id:
+        try:
+            batch_uuid = uuid.UUID(batch_id)
+            files = files.filter(batch_id=batch_uuid)
+            total = files.count()
+            done = files.filter(status=SourceFile.STATUS_DONE).count()
+            pending = files.filter(status=SourceFile.STATUS_PENDING).count()
+            processing = files.filter(status=SourceFile.STATUS_PROCESSING).count()
+            error = files.filter(status=SourceFile.STATUS_ERROR).count()
+            batch_stats = {
+                'batch_id': batch_id,
+                'total': total,
+                'done': done,
+                'pending': pending,
+                'processing': processing,
+                'error': error,
+                'has_active': (pending + processing) > 0,
+            }
+        except (ValueError, AttributeError):
+            batch_id = None
+
+    return render(request, 'imports/import_list.html', {
+        'files': files,
+        'batch_stats': batch_stats,
+        'batch_id': batch_id,
+    })
+
+
+@editor_required
+def import_list_rows(request):
+    """Endpoint HTMX — rafraîchissement du tableau (vue batch)."""
+    batch_id = request.GET.get('batch')
+    files = SourceFile.objects.select_related('academic_year', 'imported_by').all()
+
+    batch_stats = None
+    if batch_id:
+        try:
+            batch_uuid = uuid.UUID(batch_id)
+            files = files.filter(batch_id=batch_uuid)
+            total = files.count()
+            done = files.filter(status=SourceFile.STATUS_DONE).count()
+            pending = files.filter(status=SourceFile.STATUS_PENDING).count()
+            processing = files.filter(status=SourceFile.STATUS_PROCESSING).count()
+            error = files.filter(status=SourceFile.STATUS_ERROR).count()
+            batch_stats = {
+                'batch_id': batch_id,
+                'total': total,
+                'done': done,
+                'pending': pending,
+                'processing': processing,
+                'error': error,
+                'has_active': (pending + processing) > 0,
+            }
+        except (ValueError, AttributeError):
+            batch_id = None
+
+    return render(request, 'imports/partials/import_list_rows.html', {
+        'files': files,
+        'batch_stats': batch_stats,
+        'batch_id': batch_id,
+    })
 
 
 @editor_required
 def import_upload(request):
     if request.method == 'POST':
-        form = SourceFileUploadForm(request.POST, request.FILES)
-        if form.is_valid():
-            source_file = form.save(commit=False)
-            source_file.imported_by = request.user
-            source_file.original_filename = request.FILES['file'].name
+        uploaded_files = request.FILES.getlist('file')
+
+        if not uploaded_files:
+            messages.error(request, "Aucun fichier sélectionné.")
+            return redirect('imports:import_upload')
+
+        if len(uploaded_files) > MAX_FILES:
+            messages.error(request, f"Maximum {MAX_FILES} fichiers par lot.")
+            return redirect('imports:import_upload')
+
+        # Valider tous les fichiers avant d'en créer un seul
+        errors = []
+        for f in uploaded_files:
+            err = _validate_uploaded_file(f)
+            if err:
+                errors.append(err)
+        if errors:
+            for err in errors[:5]:  # afficher max 5 erreurs
+                messages.error(request, err)
+            return redirect('imports:import_upload')
+
+        # Cas : un seul fichier → comportement classique (redirect dry-run)
+        if len(uploaded_files) == 1:
+            f = uploaded_files[0]
+            source_file = SourceFile(
+                imported_by=request.user,
+                original_filename=f.name,
+                file=f,
+            )
             source_file.save()
-            task_dry_run.delay(source_file.pk)
-            messages.info(request, "Fichier uploadé. Analyse en cours, patientez...")
+            task_dry_run.apply_async(args=[source_file.pk])
+            messages.info(request, "Fichier uploadé. Analyse en cours, patientez…")
             return redirect('imports:import_dry_run', pk=source_file.pk)
-    else:
-        form = SourceFileUploadForm()
+
+        # Cas : plusieurs fichiers → batch
+        batch_uuid = uuid.uuid4()
+        created = []
+        for index, f in enumerate(uploaded_files):
+            source_file = SourceFile(
+                imported_by=request.user,
+                original_filename=f.name,
+                file=f,
+                batch_id=batch_uuid,
+            )
+            source_file.save()
+            # Étalement des tâches : 5 s d'écart entre chaque
+            task_dry_run.apply_async(args=[source_file.pk], countdown=index * 5)
+            created.append(source_file)
+
+        messages.success(
+            request,
+            f"{len(created)} fichier(s) mis en file d'attente pour analyse."
+        )
+        return redirect(f"{reverse('imports:import_list')}?batch={batch_uuid}")
+
     columns = ['Nom complet', 'Pourcentage', 'Classe', 'Section', 'Année scolaire']
-    return render(request, 'imports/import_upload.html', {'form': form, 'columns': columns})
+    return render(request, 'imports/import_upload.html', {'columns': columns})
 
 
 @editor_required
@@ -50,7 +174,6 @@ def import_dry_run_status(request, pk):
 @require_POST
 def import_confirm(request, pk):
     source_file = get_object_or_404(SourceFile, pk=pk)
-    # Seul l'importateur ou un admin peut confirmer
     if source_file.imported_by != request.user and not request.user.is_admin:
         messages.error(request, "Vous ne pouvez confirmer que vos propres imports.")
         return redirect('imports:import_list')
@@ -90,12 +213,15 @@ def import_rollback(request, pk):
         }
         log_action(request.user, 'delete', 'SourceFile', source_file.pk,
                    old_value=old_value, object_repr=source_file.original_filename)
+        batch_id = source_file.batch_id
         grades.delete()
         source_file.delete()
         messages.success(
             request,
             f"Import « {source_file.original_filename} » annulé : {grade_count} résultat(s) supprimé(s)."
         )
+        if batch_id:
+            return redirect(f"{reverse('imports:import_list')}?batch={batch_id}")
         return redirect('imports:import_list')
 
     return render(request, 'imports/import_rollback.html', {

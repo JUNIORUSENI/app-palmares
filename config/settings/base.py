@@ -117,6 +117,15 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
+# Route les tâches d'import vers une queue dédiée (traitement limité à 2 en parallèle)
+CELERY_TASK_ROUTES = {
+    'apps.imports.tasks.task_dry_run': {'queue': 'imports'},
+    'apps.imports.tasks.task_import': {'queue': 'imports'},
+}
+# Limites de temps : 5 min soft (SoftTimeLimitExceeded), 6 min hard kill
+CELERY_TASK_SOFT_TIME_LIMIT = 300
+CELERY_TASK_TIME_LIMIT = 360
+
 # Auth
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
