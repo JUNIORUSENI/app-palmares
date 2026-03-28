@@ -48,7 +48,7 @@ def import_list(request):
                 'pending': pending,
                 'processing': processing,
                 'error': error,
-                'has_active': (pending + processing) > 0,
+                'has_active': processing > 0 or files.filter(status=SourceFile.STATUS_PENDING, dry_run_report={}).exists(),
             }
         except (ValueError, AttributeError):
             batch_id = None
@@ -83,7 +83,7 @@ def import_list_rows(request):
                 'pending': pending,
                 'processing': processing,
                 'error': error,
-                'has_active': (pending + processing) > 0,
+                'has_active': processing > 0 or files.filter(status=SourceFile.STATUS_PENDING, dry_run_report={}).exists(),
             }
         except (ValueError, AttributeError):
             batch_id = None

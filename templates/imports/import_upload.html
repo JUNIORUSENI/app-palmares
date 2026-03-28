@@ -49,6 +49,7 @@
             <label class="mb-2 block text-sm font-medium text-slate-700">Fichiers Excel</label>
 
             <div id="drop-zone"
+                 class="relative"
                  ondragover="onDragOver(event)"
                  ondragleave="onDragLeave(event)"
                  ondrop="onDrop(event)">
@@ -72,7 +73,6 @@
                            accept=".xlsx,.xls"
                            multiple
                            class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                           style="position:absolute;inset:0;width:100%;height:100%;cursor:pointer;opacity:0;"
                            onchange="onFileChange(event)">
                 </label>
             </div>
@@ -115,20 +115,21 @@
     var MAX_FILES = 100;
     var MAX_SIZE  = 20 * 1024 * 1024; // 20 MB
 
-    var fileInput   = document.getElementById('file-input');
-    var dropLabel   = document.getElementById('drop-label');
-    var fileList    = document.getElementById('file-list');
-    var fileItems   = document.getElementById('file-items');
-    var fileCount   = document.getElementById('file-count');
+    var fileInput     = document.getElementById('file-input');
+    var dropLabel     = document.getElementById('drop-label');
+    var fileList      = document.getElementById('file-list');
+    var fileItems     = document.getElementById('file-items');
+    var fileCount     = document.getElementById('file-count');
     var fileSizeTotal = document.getElementById('file-size-total');
-    var fileError   = document.getElementById('file-error');
-    var uploadBtn   = document.getElementById('upload-btn');
+    var fileError     = document.getElementById('file-error');
+    var uploadBtn     = document.getElementById('upload-btn');
     var uploadSpinner = document.getElementById('upload-spinner');
     var uploadIconBtn = document.getElementById('upload-icon-btn');
     var uploadBtnText = document.getElementById('upload-btn-text');
+    var csrfToken     = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-    // DataTransfer pour maintenir la liste de fichiers
-    var dt = new DataTransfer();
+    // Liste JS simple — on ne touche JAMAIS à input.files
+    var selectedFiles = [];
 
     function formatSize(bytes) {
         if (bytes < 1024) return bytes + ' o';
@@ -136,13 +137,17 @@
         return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
     }
 
+    function escHtml(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
     function renderFileList() {
         fileItems.innerHTML = '';
         var totalSize = 0;
         var hasError = false;
 
-        for (var i = 0; i < dt.files.length; i++) {
-            var f = dt.files[i];
+        for (var i = 0; i < selectedFiles.length; i++) {
+            var f = selectedFiles[i];
             totalSize += f.size;
             var ext = f.name.split('.').pop().toLowerCase();
             var invalid = (ext !== 'xlsx' && ext !== 'xls') || f.size > MAX_SIZE;
@@ -169,7 +174,7 @@
             fileItems.appendChild(li);
         }
 
-        var n = dt.files.length;
+        var n = selectedFiles.length;
         fileCount.textContent = n + ' fichier' + (n > 1 ? 's' : '') + ' sélectionné' + (n > 1 ? 's' : '');
         fileSizeTotal.textContent = 'Total : ' + formatSize(totalSize);
 
@@ -191,45 +196,27 @@
             : (n === 1 ? 'Analyser 1 fichier' : 'Analyser ' + n + ' fichiers');
     }
 
-    function escHtml(str) {
-        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-
     function addFiles(files) {
         for (var i = 0; i < files.length; i++) {
-            // Éviter les doublons par nom
-            var exists = false;
-            for (var j = 0; j < dt.files.length; j++) {
-                if (dt.files[j].name === files[i].name && dt.files[j].size === files[i].size) {
-                    exists = true; break;
-                }
-            }
-            if (!exists) dt.items.add(files[i]);
+            var f = files[i];
+            var exists = selectedFiles.some(function(s) { return s.name === f.name && s.size === f.size; });
+            if (!exists) selectedFiles.push(f);
         }
-        fileInput.files = dt.files;
         renderFileList();
     }
 
     window.removeFile = function(btn) {
-        var idx = parseInt(btn.getAttribute('data-index'));
-        var newDt = new DataTransfer();
-        for (var i = 0; i < dt.files.length; i++) {
-            if (i !== idx) newDt.items.add(dt.files[i]);
-        }
-        dt = newDt;
-        fileInput.files = dt.files;
+        selectedFiles.splice(parseInt(btn.getAttribute('data-index')), 1);
         renderFileList();
     };
 
     window.clearFiles = function() {
-        dt = new DataTransfer();
-        fileInput.files = dt.files;
+        selectedFiles = [];
         renderFileList();
     };
 
     window.onFileChange = function(event) {
         addFiles(event.target.files);
-        // Réinitialiser l'input pour permettre de re-sélectionner les mêmes fichiers
         event.target.value = '';
     };
 
@@ -251,13 +238,37 @@
         addFiles(event.dataTransfer.files);
     };
 
+    // Soumission via fetch — contourne entièrement input.files
     window.onUploadSubmit = function(event) {
-        if (uploadBtn.disabled) { event.preventDefault(); return; }
+        event.preventDefault();
+        if (selectedFiles.length === 0) return;
+
         uploadBtn.disabled = true;
         uploadSpinner.style.display = 'block';
         uploadIconBtn.style.display = 'none';
-        var n = dt.files.length;
+        var n = selectedFiles.length;
         uploadBtnText.textContent = n === 1 ? 'Analyse en cours…' : 'Envoi de ' + n + ' fichiers…';
+
+        var formData = new FormData();
+        formData.append('csrfmiddlewaretoken', csrfToken);
+        for (var i = 0; i < selectedFiles.length; i++) {
+            formData.append('file', selectedFiles[i]);
+        }
+
+        fetch('{% url "imports:import_upload" %}', {
+            method: 'POST',
+            body: formData,
+            redirect: 'follow'
+        }).then(function(response) {
+            // Le serveur renvoie un 302 → fetch suit la redirection
+            window.location.href = response.url;
+        }).catch(function() {
+            uploadBtn.disabled = false;
+            uploadSpinner.style.display = 'none';
+            uploadIconBtn.style.display = 'block';
+            uploadBtnText.textContent = 'Analyser ' + n + ' fichiers';
+            alert('Erreur réseau. Veuillez réessayer.');
+        });
     };
 })();
 </script>
