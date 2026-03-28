@@ -14,7 +14,6 @@ def _safe_json(data):
     )
 
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
 from django.db.models import Avg, Count, Q, Sum
 from django.contrib.postgres.search import TrigramSimilarity
 
@@ -94,22 +93,6 @@ def year_dashboard(request, year_pk):
         'classes': classes,
     })
 
-
-@login_required
-def student_chart_data(request, student_pk):
-    """Retourne les données Chart.js pour l'évolution d'un élève."""
-    student = get_object_or_404(Student, pk=student_pk)
-    grades = (
-        student.grades
-        .select_related('academic_year')
-        .filter(percentage__isnull=False)
-        .order_by('academic_year__label')
-    )
-    data = {
-        'labels': [g.academic_year.label for g in grades],
-        'data': [float(g.percentage) for g in grades],
-    }
-    return JsonResponse(data)
 
 
 @login_required

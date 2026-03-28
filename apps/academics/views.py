@@ -59,17 +59,9 @@ def student_detail(request, pk):
         .select_related('classroom', 'academic_year', 'verified_by')
         .order_by('-academic_year__label')
     )
-    # Graphique : ordre chronologique (la plus ancienne à gauche), sans null
-    grades_chart = (
-        student.grades
-        .select_related('academic_year')
-        .filter(percentage__isnull=False)
-        .order_by('academic_year__label')
-    )
     return render(request, 'academics/student_detail.html', {
         'student': student,
         'grades': grades,
-        'grades_chart': grades_chart,
     })
 
 

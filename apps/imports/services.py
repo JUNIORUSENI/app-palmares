@@ -17,7 +17,7 @@ def _clean_str(value):
     text = str(value or '').strip()
     if text.lower() in ('nan', 'none'):
         return ''
-    return text
+    return text.upper()
 
 
 def _validate_row(row, row_num):
