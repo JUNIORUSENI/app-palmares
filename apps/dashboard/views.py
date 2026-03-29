@@ -1,4 +1,5 @@
 import json
+from django.core.paginator import Paginator
 from django.shortcuts import render, get_object_or_404, redirect
 
 
@@ -123,116 +124,6 @@ def admin_stats(request):
     from apps.imports.models import SourceFile
     from apps.audit.models import AuditLog
 
-    # ── KPIs globaux ──────────────────────────────────────────────
-    total_students = Student.objects.count()
-    total_grades = GradeRecord.objects.count()
-    graded = GradeRecord.objects.filter(percentage__isnull=False)
-    graded_count = graded.count()
-    passed_count = graded.filter(percentage__gte=50).count()
-    verified_count = GradeRecord.objects.filter(is_verified=True).count()
-    pass_rate = round(passed_count / graded_count * 100, 1) if graded_count else 0
-    verify_rate = round(verified_count / total_grades * 100, 1) if total_grades else 0
-    kpis = {
-        'total_students': total_students,
-        'total_grades': total_grades,
-        'pass_rate': pass_rate,
-        'verify_rate': verify_rate,
-        'passed_count': passed_count,
-        'verified_count': verified_count,
-    }
-
-    # ── Évolution par année ───────────────────────────────────────
-    year_stats = list(
-        AcademicYear.objects
-        .annotate(
-            total=Count('grades', filter=Q(grades__percentage__isnull=False)),
-            passed=Count('grades', filter=Q(grades__percentage__gte=50)),
-            avg_pct=Avg('grades__percentage'),
-        )
-        .filter(total__gt=0)
-        .order_by('label')
-    )
-    year_trend = {
-        'labels': [y.label for y in year_stats],
-        'pass_rates': [round(y.passed / y.total * 100, 1) if y.total else 0 for y in year_stats],
-        'avg_pcts': [round(float(y.avg_pct), 1) if y.avg_pct else 0 for y in year_stats],
-    }
-
-    # ── Distribution des notes (histogramme) ─────────────────────
-    dist_labels, dist_counts = [], []
-    for lo in range(0, 100, 10):
-        if lo == 90:
-            cnt = graded.filter(percentage__gte=90).count()
-            lbl = '90–100'
-        else:
-            cnt = graded.filter(percentage__gte=lo, percentage__lt=lo + 10).count()
-            lbl = f'{lo}–{lo + 9}'
-        dist_labels.append(lbl)
-        dist_counts.append(cnt)
-
-    # ── Réussite par section ──────────────────────────────────────
-    section_data = list(
-        GradeRecord.objects
-        .filter(percentage__isnull=False)
-        .values('classroom__section')
-        .annotate(
-            total=Count('id'),
-            passed=Count('id', filter=Q(percentage__gte=50)),
-            avg_pct=Avg('percentage'),
-        )
-        .order_by('classroom__section')
-    )
-    for s in section_data:
-        s['pass_rate'] = round(s['passed'] / s['total'] * 100, 1) if s['total'] else 0
-        s['avg_pct'] = round(float(s['avg_pct']), 1) if s['avg_pct'] else 0
-
-    # ── Top 10 classes par moyenne ────────────────────────────────
-    top_classes = list(
-        ClassRoom.objects
-        .annotate(
-            avg_pct=Avg('grades__percentage'),
-            total=Count('grades', filter=Q(grades__percentage__isnull=False)),
-        )
-        .filter(total__gte=3)
-        .order_by('-avg_pct')[:10]
-    )
-
-    # ── Taux de vérification par année ────────────────────────────
-    verify_stats = list(
-        AcademicYear.objects
-        .annotate(
-            total=Count('grades'),
-            verified=Count('grades', filter=Q(grades__is_verified=True)),
-        )
-        .filter(total__gt=0)
-        .order_by('label')
-    )
-
-    # ── Top 10 élèves par moyenne ─────────────────────────────────
-    top_students = list(
-        Student.objects
-        .annotate(
-            avg_pct=Avg('grades__percentage'),
-            grade_count=Count('grades'),
-        )
-        .filter(grade_count__gte=1, avg_pct__isnull=False)
-        .order_by('-avg_pct')[:10]
-    )
-
-    # ── Élèves à échecs répétés ───────────────────────────────────
-    repeated_failures = list(
-        Student.objects
-        .annotate(
-            fail_count=Count('grades', filter=Q(
-                grades__percentage__lt=50,
-                grades__percentage__isnull=False,
-            )),
-            grade_count=Count('grades'),
-        )
-        .filter(fail_count__gte=2)
-        .order_by('-fail_count')[:10]
-    )
-
     # ── Activité des utilisateurs (AuditLog) ─────────────────────
     role_map = {'admin': 'Administrateur', 'editor': 'Éditeur', 'reader': 'Lecteur'}
     user_activity = list(
@@ -264,31 +155,49 @@ def admin_stats(request):
     )
 
     return render(request, 'dashboard/admin_stats.html', {
-        'kpis': kpis,
-        'year_trend_json': _safe_json(year_trend),
-        'distribution_json': _safe_json({'labels': dist_labels, 'counts': dist_counts}),
-        'section_stats_json': _safe_json({
-            'labels': [s['classroom__section'] or 'Sans section' for s in section_data],
-            'pass_rates': [s['pass_rate'] for s in section_data],
-            'avg_pcts': [s['avg_pct'] for s in section_data],
-        }),
-        'top_classes_json': _safe_json({
-            'labels': [c.name for c in top_classes],
-            'values': [round(float(c.avg_pct), 1) if c.avg_pct else 0 for c in top_classes],
-        }),
-        'verify_trend_json': _safe_json({
-            'labels': [y.label for y in verify_stats],
-            'verified': [y.verified for y in verify_stats],
-            'unverified': [y.total - y.verified for y in verify_stats],
-        }),
-        'trend_has_data': bool(year_stats),
-        'dist_has_data': any(c > 0 for c in dist_counts),
-        'section_has_data': bool(section_data),
-        'top_classes_has_data': bool(top_classes),
-        'verify_has_data': bool(verify_stats),
-        'top_students': top_students,
-        'repeated_failures': repeated_failures,
         'user_activity': user_activity,
         'import_stats': import_stats,
         'recent_imports': recent_imports,
+    })
+
+
+@login_required
+@admin_required
+def audit_log(request):
+    from apps.audit.models import AuditLog
+    from apps.accounts.models import User
+
+    qs = AuditLog.objects.select_related('user').all()
+
+    # Filtres
+    action = request.GET.get('action', '')
+    user_id = request.GET.get('user', '')
+    model = request.GET.get('model', '')
+
+    if action:
+        qs = qs.filter(action=action)
+    if user_id:
+        qs = qs.filter(user_id=user_id)
+    if model:
+        qs = qs.filter(model_name=model)
+
+    paginator = Paginator(qs, 50)
+    page = paginator.get_page(request.GET.get('page'))
+
+    users = User.objects.filter(audit_logs__isnull=False).distinct().order_by('username')
+    actions = AuditLog.ACTION_CHOICES
+    models_list = (
+        AuditLog.objects.values_list('model_name', flat=True)
+        .distinct()
+        .order_by('model_name')
+    )
+
+    return render(request, 'dashboard/audit_log.html', {
+        'page': page,
+        'users': users,
+        'actions': actions,
+        'models_list': models_list,
+        'current_action': action,
+        'current_user': user_id,
+        'current_model': model,
     })
