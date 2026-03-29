@@ -131,7 +131,9 @@ def do_import(file_path, source_file_obj, task=None):
                 name=cleaned['classroom_name'],
                 defaults={'section': cleaned['section']},
             )
-            student, _ = Student.objects.get_or_create(full_name=cleaned['full_name'])
+            student = Student.objects.filter(full_name=cleaned['full_name']).first()
+            if student is None:
+                student = Student.objects.create(full_name=cleaned['full_name'])
 
             GradeRecord.objects.update_or_create(
                 student=student,
