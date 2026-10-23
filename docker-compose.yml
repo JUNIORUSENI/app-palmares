@@ -70,7 +70,7 @@ services:
   # Compile le CSS Tailwind en continu (le dossier du projet est monté dans le conteneur web,
   # ce qui masque le CSS compilé à la construction de l'image)
   css:
-    image: node:24-alpine
+    image: node:25-alpine
     working_dir: /app
     command: sh -c "npm ci && npm run build:js && npm run watch:css"
     volumes:
