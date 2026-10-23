@@ -1,160 +1,272 @@
-import pandas as pd
-from decimal import Decimal, InvalidOperation
-from django.db import transaction
+"""ETL des palmarès : analyse à blanc (dry-run), import et annulation."""
+import logging
+from collections import Counter
+from dataclasses import dataclass, field
 
-EXPECTED_COLUMNS = {'Nom complet', 'Pourcentage', 'Classe', 'Section', 'Année scolaire'}
+from django.db import connection, transaction
+
+from apps.academics.models import AcademicYear, ClassRoom, GradeRecord, Student
+from apps.core.text import name_key, normalize_label
+
+from .excel import ImportFileError, read_workbook, validate_row
+from .models import ImportChange
+
+logger = logging.getLogger(__name__)
+
+MAX_REPORTED_ERRORS = 100
+MAX_REPORTED_DETAILS = 20
+# Verrou PostgreSQL : un seul import à la fois (deux imports simultanés pourraient créer
+# le même élève en double ou violer l'unicité d'un résultat).
+IMPORT_LOCK_ID = 734_001
 
 
-def _load_dataframe(file_path):
-    df = pd.read_excel(file_path, dtype=str)
-    df.columns = df.columns.str.strip()
-    df = df.dropna(how='all')
-    return df
+@dataclass
+class Prepared:
+    """Contenu d'un fichier après lecture et validation, sans accès à la base."""
+    rows: list = field(default_factory=list)       # [(emplacement, valeurs nettoyées)]
+    total: int = 0
+    invalid: int = 0
+    duplicates: int = 0
+    errors: list = field(default_factory=list)
+    warnings: list = field(default_factory=list)
 
 
-def _clean_str(value):
-    """Nettoie une valeur lue par pandas : les NaN deviennent chaîne vide."""
-    text = str(value or '').strip()
-    if text.lower() in ('nan', 'none'):
-        return ''
-    return text.upper()
+def prepare(file_path):
+    """Lit le fichier et valide chaque ligne. Lève ImportFileError si le fichier est inutilisable."""
+    sheets, ignored = read_workbook(file_path)
+    prepared = Prepared()
+    for name, missing in ignored:
+        prepared.warnings.append(f"Feuille « {name} » ignorée : colonnes manquantes ({', '.join(missing)}).")
+
+    multiple = len(sheets) > 1
+    seen = {}
+    for sheet in sheets:
+        if sheet.fraction_scaled:
+            prepared.warnings.append(
+                f"Feuille « {sheet.name} » : tous les pourcentages sont compris entre 0 et 1, "
+                "ils ont été interprétés comme des fractions (0,75 = 75 %)."
+            )
+        for number, cells in sheet.rows:
+            prepared.total += 1
+            location = f"Feuille « {sheet.name} », ligne {number}" if multiple else f"Ligne {number}"
+            cleaned, errors = validate_row(cells, sheet.fraction_scaled)
+            if errors:
+                prepared.invalid += 1
+                prepared.errors.extend(f"{location} : {error}" for error in errors)
+                continue
+            key = (name_key(cleaned['full_name']), cleaned['classroom_name'],
+                   cleaned['section'], cleaned['year_label'])
+            if key in seen:
+                prepared.duplicates += 1
+                prepared.errors.append(
+                    f"{location} : doublon de {seen[key].lower()} (même élève, même classe, même année)"
+                )
+                continue
+            seen[key] = location
+            prepared.rows.append((location, cleaned))
+    return prepared
 
 
-def _validate_row(row, row_num):
-    errors = []
+class _Lookup:
+    """Retrouve (ou crée) années, classes et élèves en tolérant les variantes de graphie."""
 
-    full_name = _clean_str(row.get('Nom complet', ''))
-    if not full_name:
-        errors.append(f"Ligne {row_num} : Nom complet manquant")
+    def __init__(self, create):
+        self.create = create
+        self.years = {}
+        for year in AcademicYear.objects.order_by('pk'):
+            self.years.setdefault(year.label, year)
+        self.classrooms = {}
+        for classroom in ClassRoom.objects.order_by('pk'):
+            self.classrooms.setdefault((normalize_label(classroom.name), normalize_label(classroom.section)), classroom)
+        self.students = {}
 
-    percentage_raw = _clean_str(row.get('Pourcentage', '')).replace(',', '.')
-    if percentage_raw.lower() in ('', 'n/a', '-', '/'):
-        percentage_raw = ''
-    percentage = None
-    if percentage_raw:
-        try:
-            percentage = Decimal(percentage_raw)
-            if not (Decimal('0') <= percentage <= Decimal('100')):
-                errors.append(f"Ligne {row_num} : Pourcentage hors limites ({percentage})")
-                percentage = None
-        except InvalidOperation:
-            errors.append(f"Ligne {row_num} : Pourcentage invalide ({percentage_raw!r})")
+    def year(self, label):
+        year = self.years.get(label)
+        if year is None and self.create:
+            year = self.years[label] = AcademicYear.objects.create(label=label)
+        return year
 
-    classroom_name = _clean_str(row.get('Classe', ''))
-    if not classroom_name:
-        errors.append(f"Ligne {row_num} : Classe manquante")
+    def classroom(self, name, section):
+        classroom = self.classrooms.get((name, section))
+        if classroom is None and self.create:
+            classroom = self.classrooms[(name, section)] = ClassRoom.objects.create(name=name, section=section)
+        return classroom
 
-    section = _clean_str(row.get('Section', ''))
-    if not section:
-        errors.append(f"Ligne {row_num} : Section manquante")
+    def student(self, full_name):
+        key = name_key(full_name)
+        if key not in self.students:
+            student = Student.objects.filter(name_key=key).order_by('pk').first()
+            if student is None and self.create:
+                student = Student.objects.create(full_name=full_name)
+            self.students[key] = student
+        return self.students[key]
 
-    year_label = _clean_str(row.get('Année scolaire', ''))
-    if not year_label:
-        errors.append(f"Ligne {row_num} : Année scolaire manquante")
 
-    cleaned = {
-        'full_name': full_name,
-        'percentage': percentage,
-        'classroom_name': classroom_name,
-        'section': section,
-        'year_label': year_label,
+def _existing_grade(lookup, cleaned):
+    year = lookup.year(cleaned['year_label'])
+    classroom = lookup.classroom(cleaned['classroom_name'], cleaned['section'])
+    student = lookup.student(cleaned['full_name'])
+    existing = None
+    if year and classroom and student:
+        existing = GradeRecord.objects.filter(
+            student=student, classroom=classroom, academic_year=year
+        ).first()
+    return year, classroom, student, existing
+
+
+def _decide(existing, new_percentage):
+    """'create' | 'update' | 'unchanged' | 'blocked'.
+
+    - une note déjà vérifiée par un humain n'est jamais écrasée ;
+    - une cellule vide n'efface pas une note existante.
+    """
+    if existing is None:
+        return 'create'
+    if new_percentage is None or existing.percentage == new_percentage:
+        return 'unchanged'
+    if existing.is_verified:
+        return 'blocked'
+    return 'update'
+
+
+def _blocked_message(location, cleaned, existing):
+    return (
+        f"{location} : {cleaned['full_name']} ({cleaned['classroom_name']}, {cleaned['year_label']}) "
+        f"est déjà vérifié à {existing.percentage} %, la valeur du fichier ({cleaned['percentage']} %) est ignorée."
+    )
+
+
+def _error_report(message, missing=()):
+    return {
+        'status': 'error', 'message': message,
+        'total_rows': 0, 'valid_rows': 0, 'error_rows': 0,
+        'errors': [f"Colonne manquante : {column}" for column in missing],
+        'missing_columns': list(missing), 'warnings': [],
     }
-    return cleaned, errors
 
 
 def dry_run(file_path):
     """Analyse le fichier et retourne un rapport sans rien écrire en base."""
     try:
-        df = _load_dataframe(file_path)
+        prepared = prepare(file_path)
+    except ImportFileError as exc:
+        return _error_report(str(exc), exc.missing_columns)
     except Exception:
-        return {
-            'status': 'error',
-            'message': "Impossible de lire le fichier. Vérifiez qu'il s'agit bien d'un fichier Excel (.xlsx ou .xls) valide.",
-            'total_rows': 0, 'valid_rows': 0, 'error_rows': 0,
-            'errors': [], 'missing_columns': [],
-        }
+        logger.exception("Échec de l'analyse du fichier %s", file_path)
+        return _error_report(
+            "Impossible de lire le fichier. Vérifiez qu'il s'agit bien d'un fichier Excel (.xlsx ou .xls) valide."
+        )
 
-    missing_cols = EXPECTED_COLUMNS - set(df.columns)
-    if missing_cols:
-        return {
-            'status': 'error',
-            'message': f"Colonnes manquantes : {', '.join(missing_cols)}",
-            'total_rows': len(df), 'valid_rows': 0, 'error_rows': len(df),
-            'errors': [f"Colonne manquante : {col}" for col in missing_cols],
-            'missing_columns': list(missing_cols),
-        }
+    lookup = _Lookup(create=False)
+    counts = Counter()
+    blocked = []
+    for location, cleaned in prepared.rows:
+        *_, existing = _existing_grade(lookup, cleaned)
+        action = _decide(existing, cleaned['percentage'])
+        counts[action] += 1
+        if action == 'blocked' and len(blocked) < MAX_REPORTED_DETAILS:
+            blocked.append(_blocked_message(location, cleaned, existing))
 
-    all_errors = []
-    valid_count = 0
-
-    for i, row in enumerate(df.to_dict('records'), start=2):
-        _, row_errors = _validate_row(row, i)
-        if row_errors:
-            all_errors.extend(row_errors)
-        else:
-            valid_count += 1
-
+    error_rows = prepared.invalid + prepared.duplicates
     return {
-        'status': 'ok' if not all_errors else 'warning',
-        'total_rows': len(df),
-        'valid_rows': valid_count,
-        'error_rows': len(df) - valid_count,
-        'errors': all_errors[:100],
+        'status': 'warning' if (prepared.errors or prepared.warnings or counts['blocked']) else 'ok',
+        'total_rows': prepared.total,
+        'valid_rows': len(prepared.rows),
+        'error_rows': error_rows,
+        'errors': prepared.errors[:MAX_REPORTED_ERRORS],
+        'warnings': prepared.warnings,
         'missing_columns': [],
+        'to_create': counts['create'],
+        'to_update': counts['update'],
+        'unchanged': counts['unchanged'],
+        'blocked': counts['blocked'],
+        'blocked_details': blocked,
     }
 
 
-def do_import(file_path, source_file_obj, task=None):
-    """
-    Importe les données du fichier en base de données.
-    `task` est la tâche Celery (optionnel) pour mettre à jour la progression.
-    L'import est enveloppé dans une transaction atomique pour garantir la cohérence.
-    """
-    from apps.academics.models import AcademicYear, ClassRoom, Student, GradeRecord
+def do_import(file_path, source_file, task=None):
+    """Importe le fichier dans une transaction atomique (tout ou rien).
 
-    df = _load_dataframe(file_path)
-    total = len(df)
-    imported = 0
-    skipped = 0
-    last_year = None
+    - nouvelle note   : créée et rattachée au fichier (source_file) ;
+    - note existante  : mise à jour et tracée (ImportChange) pour pouvoir être restaurée ;
+    - note vérifiée   : jamais écrasée (comptée dans « blocked »).
+    """
+    prepared = prepare(file_path)
+    counts = Counter()
+    blocked = []
+    changes = []
+    year_usage = Counter()
 
     with transaction.atomic():
-        for i, row in enumerate(df.to_dict('records'), start=2):
-            cleaned, errors = _validate_row(row, i)
-            if errors:
-                skipped += 1
-                continue
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_advisory_xact_lock(%s)", [IMPORT_LOCK_ID])
 
-            year, _ = AcademicYear.objects.get_or_create(label=cleaned['year_label'])
-            last_year = year
-            classroom, _ = ClassRoom.objects.get_or_create(
-                name=cleaned['classroom_name'],
-                defaults={'section': cleaned['section']},
-            )
-            student = Student.objects.filter(full_name=cleaned['full_name']).first()
-            if student is None:
-                student = Student.objects.create(full_name=cleaned['full_name'])
+        lookup = _Lookup(create=True)
+        for index, (location, cleaned) in enumerate(prepared.rows, start=1):
+            year, classroom, student, existing = _existing_grade(lookup, cleaned)
+            new_percentage = cleaned['percentage']
+            action = _decide(existing, new_percentage)
+            counts[action] += 1
+            year_usage[year.pk] += 1
 
-            GradeRecord.objects.update_or_create(
-                student=student,
-                classroom=classroom,
-                academic_year=year,
-                defaults={
-                    'percentage': cleaned['percentage'],
-                    'source_file': source_file_obj,
-                },
-            )
-            imported += 1
-
-            if task and i % 50 == 0:
-                task.update_state(
-                    state='PROGRESS',
-                    meta={'current': imported, 'total': total},
+            if action == 'create':
+                GradeRecord.objects.create(
+                    student=student, classroom=classroom, academic_year=year,
+                    percentage=new_percentage, source_file=source_file,
                 )
+            elif action == 'update':
+                changes.append(ImportChange(
+                    source_file=source_file, grade=existing,
+                    old_percentage=existing.percentage, new_percentage=new_percentage,
+                ))
+                existing.percentage = new_percentage
+                existing.save(update_fields=['percentage'])
+            elif action == 'blocked' and len(blocked) < MAX_REPORTED_DETAILS:
+                blocked.append(_blocked_message(location, cleaned, existing))
 
-    # Rattache l'année scolaire au SourceFile (hors transaction pour ne pas bloquer en cas d'erreur)
-    if last_year and not source_file_obj.academic_year_id:
-        source_file_obj.academic_year = last_year
-        source_file_obj.save(update_fields=['academic_year'])
+            if task and index % 50 == 0:
+                task.update_state(state='PROGRESS', meta={'current': index, 'total': len(prepared.rows)})
 
-    return {'total': total, 'imported': imported, 'skipped': skipped}
+        ImportChange.objects.bulk_create(changes, batch_size=1000)
+
+        # Année principale du fichier (la plus fréquente)
+        if year_usage and not source_file.academic_year_id:
+            source_file.academic_year_id = year_usage.most_common(1)[0][0]
+            source_file.save(update_fields=['academic_year'])
+
+    return {
+        'total': prepared.total,
+        'imported': counts['create'] + counts['update'],
+        'created': counts['create'],
+        'updated': counts['update'],
+        'unchanged': counts['unchanged'],
+        'blocked': counts['blocked'],
+        'blocked_details': blocked,
+        'skipped': prepared.invalid + prepared.duplicates,
+        'warnings': prepared.warnings,
+    }
+
+
+def rollback_import(source_file):
+    """Annule un import : supprime les notes CRÉÉES par ce fichier et restaure les valeurs
+    qu'il avait modifiées.
+
+    Une note modifiée n'est restaurée que si elle n'a pas été retouchée depuis (même valeur
+    que celle de l'import, non vérifiée) : on ne perd jamais le travail d'un éditeur.
+    Retourne {'deleted': n, 'restored': n, 'kept': n}.
+    """
+    with transaction.atomic():
+        restored = kept = 0
+        for change in source_file.changes.select_related('grade'):
+            grade = change.grade
+            if grade.percentage == change.new_percentage and not grade.is_verified:
+                grade.percentage = change.old_percentage
+                grade.save(update_fields=['percentage'])
+                restored += 1
+            else:
+                kept += 1
+        created = source_file.grade_records.all()
+        deleted = created.count()
+        created.delete()
+        source_file.delete()
+    return {'deleted': deleted, 'restored': restored, 'kept': kept}

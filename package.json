@@ -1,0 +1,20 @@
+{
+  "name": "app-palmares-assets",
+  "private": true,
+  "description": "Compilation des assets front (Tailwind) et copie des bibliothèques JS hébergées",
+  "scripts": {
+    "build:css": "tailwindcss -c tailwind.config.js -i assets/css/input.css -o static/css/app.css --minify",
+    "build:js": "node scripts/copy-vendor.mjs",
+    "build": "npm run build:css && npm run build:js",
+    "watch:css": "tailwindcss -c tailwind.config.js -i assets/css/input.css -o static/css/app.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.19"
+  },
+  "dependencies": {
+    "htmx.org": "2.0.11"
+  },
+  "overrides": {
+    "postcss-selector-parser": "^7.1.6"
+  }
+}

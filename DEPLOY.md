@@ -218,10 +218,13 @@ Vous devriez voir la page de connexion. Connectez-vous avec le super-utilisateur
 
 Après connexion au site :
 
+Un super-utilisateur créé avec `createsuperuser` reçoit **automatiquement** le rôle `Administrateur`.
+Pour les autres comptes (éditeurs, lecteurs) :
+
 1. Allez à `https://votre-domaine.com/admin/`
 2. Cliquez sur **Utilisateurs**
-3. Ouvrez votre utilisateur
-4. Changez le **Rôle** en `Administrateur`
+3. Ouvrez l'utilisateur
+4. Choisissez son **Rôle**
 5. Sauvegardez
 
 ---
@@ -256,27 +259,30 @@ Vérifiez les points suivants après chaque déploiement :
 - [ ] L'export PDF fonctionne (WeasyPrint opérationnel)
 - [ ] Les logs d'erreur sont vides : `docker exec palmares-stack-web-1 cat /app/logs/django_errors.log`
 - [ ] Le healthcheck Celery est vert : `docker exec palmares-stack-celery-1 celery -A config inspect ping`
+- [ ] `docker exec palmares-stack-web-1 python manage.py check --deploy` ne signale **aucun** avertissement.
+      En particulier `security.W009` signifie que la `SECRET_KEY` est trop courte ou faible : générez-en une nouvelle
+      (voir l'étape 4.3), mettez-la à jour dans Dokploy et redéployez (les sessions en cours seront fermées).
+- [ ] Les fichiers importés ne sont pas publics : `https://votre-domaine.com/media/` doit répondre **404**.
+- [ ] Une sauvegarde existe, est récente, et `restore_check.sh` réussit (étape 8.3).
 
 ### 8.3 Sauvegardes automatiques de la base de données
 
-Créez un script de backup sur le VPS :
+Le dépôt fournit deux scripts : `scripts/backup_db.sh` et `scripts/restore_check.sh`.
+
+> **Pourquoi pas un simple `pg_dump | gzip > fichier` ?** Si le conteneur est introuvable ou si `pg_dump`
+> échoue, ce montage crée quand même un fichier (vide) et affiche « Backup done » : on découvre le problème
+> le jour où l'on a besoin de restaurer. `backup_db.sh` s'arrête avec une erreur si le dump est vide,
+> tronqué ou corrompu.
+
+Copiez les scripts sur le VPS (depuis le dépôt cloné ou via `scp`) :
 
 ```bash
-cat > /root/backup-palmares.sh << 'SCRIPT'
-#!/bin/bash
-BACKUP_DIR="/root/backups/palmares"
-mkdir -p "$BACKUP_DIR"
-DATE=$(date +%Y%m%d_%H%M%S)
-CONTAINER=$(docker ps -qf "name=db" --filter "ancestor=postgres:16-alpine" | head -1)
+mkdir -p /root/palmares-scripts
+cp scripts/backup_db.sh scripts/restore_check.sh /root/palmares-scripts/
+chmod +x /root/palmares-scripts/*.sh
 
-docker exec "$CONTAINER" pg_dump -U palmares_user palmares_db | gzip > "$BACKUP_DIR/palmares_$DATE.sql.gz"
-
-# Garder les 30 derniers backups
-ls -tp "$BACKUP_DIR"/*.sql.gz | tail -n +31 | xargs -I {} rm -- {}
-echo "Backup done: palmares_$DATE.sql.gz"
-SCRIPT
-
-chmod +x /root/backup-palmares.sh
+# Premier essai à la main (adaptez DB_USER / DB_NAME à votre fichier .env)
+DB_USER=palmares_user DB_NAME=palmares_db /root/palmares-scripts/backup_db.sh
 ```
 
 Ajoutez un cron pour un backup quotidien :
@@ -284,7 +290,18 @@ Ajoutez un cron pour un backup quotidien :
 ```bash
 crontab -e
 # Ajoutez cette ligne :
-0 3 * * * /root/backup-palmares.sh >> /var/log/palmares-backup.log 2>&1
+0 3 * * * DB_USER=palmares_user DB_NAME=palmares_db /root/palmares-scripts/backup_db.sh >> /var/log/palmares-backup.log 2>&1
+```
+
+**Copie hors du serveur (fortement recommandé)** : une sauvegarde qui reste sur le VPS disparaît avec lui.
+Ajoutez `BACKUP_RSYNC_TARGET=utilisateur@autre-machine:/sauvegardes/palmares/` à la ligne du cron pour
+copier chaque sauvegarde ailleurs (autre serveur, NAS, etc.).
+
+**Tester une restauration (à faire maintenant, puis une fois par mois)** : restaure la dernière sauvegarde dans
+une base temporaire (la production n'est pas touchée), affiche le nombre d'élèves/résultats, puis la supprime.
+
+```bash
+DB_USER=palmares_user /root/palmares-scripts/restore_check.sh
 ```
 
 ### 8.4 Restaurer un backup
@@ -293,6 +310,40 @@ crontab -e
 CONTAINER=$(docker ps -qf "name=db" --filter "ancestor=postgres:16-alpine" | head -1)
 gunzip -c /root/backups/palmares/palmares_YYYYMMDD_HHMMSS.sql.gz | docker exec -i "$CONTAINER" psql -U palmares_user -d palmares_db
 ```
+
+---
+
+## Mise à jour depuis la version d'avant octobre 2026
+
+Cette version met à jour Django (5.1 → 6.1), Pillow, WeasyPrint, Celery, gunicorn… (les anciennes versions
+avaient 83 failles connues) et corrige plusieurs problèmes de données et de sécurité.
+
+1. **Sauvegardez d'abord** : `DB_USER=... DB_NAME=... /root/palmares-scripts/backup_db.sh` (étape 8.3).
+2. Dans Dokploy, **Redeploy**. Les migrations s'appliquent seules au démarrage (ajout de colonnes et d'index,
+   calcul d'une clé de comparaison des noms ; quelques secondes pour ~7 000 élèves). Aucune donnée n'est supprimée.
+3. Vérifiez la checklist 8.2, notamment `check --deploy` et `/media/` → 404.
+4. **Fusionnez les doublons déjà présents** (l'ancien import distinguait « MOÏSE », « MOISE » et « Moïse », et créait deux classes pour
+   « Classe de seconde » / « Classe de Seconde »). Les noms d'élèves sont déjà mis en majuscules par la migration ; cette commande
+   réunit les élèves, classes et années en double et uniformise le reste :
+
+   ```bash
+   docker exec -it palmares-stack-web-1 python manage.py merge_duplicates          # simulation
+   docker exec -it palmares-stack-web-1 python manage.py merge_duplicates --apply  # fusion
+   ```
+
+   Chaque fusion est inscrite dans le journal d'audit. Aucun résultat n'est supprimé, sauf si deux fiches ont une note
+   pour la même classe et la même année (la simulation indique combien).
+5. Les imports faits **avant** cette version ne mémorisent pas quelles notes ils ont créées ou écrasées : leur
+   annulation affiche un avertissement et supprime toutes les notes liées au fichier.
+
+Nouveautés d'exploitation : Redis conserve sa file sur disque (volume `redis_data`) et n'efface plus de tâches,
+les journaux Docker tournent (10 Mo × 5 par service), nginx ne publie plus `/media/`, et les limites de requêtes se
+font par visiteur (IP réelle transmise par Traefik) au lieu de pénaliser tout le monde ensemble.
+
+**Revenir en arrière** : le code précédent reste compatible avec le nouveau schéma (les nouvelles colonnes ont une
+valeur par défaut en base), donc un rollback Dokploy (étape 9.1) suffit ; la base n'a pas besoin d'être restaurée.
+Si vous redéployez ensuite cette version, lancez `merge_duplicates --apply` : il recalcule la clé des élèves
+créés entre-temps par l'ancien code.
 
 ---
 

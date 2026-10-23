@@ -1,22 +1,14 @@
 import csv
-import json
 import re
-from django.shortcuts import get_object_or_404, render
-from django.http import HttpResponse
+
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 
 from apps.academics.models import AcademicYear, ClassRoom, GradeRecord, Student
-
-
-def _safe_json(data):
-    """json.dumps avec échappement HTML pour usage sécurisé dans <script>."""
-    return (
-        json.dumps(data)
-        .replace('<', r'\u003c')
-        .replace('>', r'\u003e')
-        .replace('&', r'\u0026')
-    )
+from apps.academics.services import class_grades, grade_summary, ranked_grades, year_class_tree
+from apps.core.text import csv_safe, name_key, safe_json
 
 
 def _safe_filename(name):
@@ -24,35 +16,31 @@ def _safe_filename(name):
     return re.sub(r'[^\w\-.]', '_', name)
 
 
+def _status_columns(grade):
+    """(pourcentage affiché, statut) d'un résultat."""
+    if grade.percentage is None:
+        return '—', 'Non noté'
+    return str(grade.percentage).replace('.', ','), ('Admis' if grade.percentage >= 50 else 'Ajourné')
+
+
+def _pdf_response(template, context, filename):
+    html = render_to_string(template, context)
+    try:
+        from weasyprint import HTML
+    except ImportError:
+        return HttpResponse("WeasyPrint non installé.", status=500)
+    response = HttpResponse(HTML(string=html).write_pdf(), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{_safe_filename(filename)}"'
+    return response
+
+
 @login_required
 def export_index(request):
-    years = AcademicYear.objects.order_by('-label')
-
-    # Construire une structure année → sections → classes
-    # { year_id: { label, sections: { section_label: [ {id, name} ] } } }
-    data = {}
-    for year in years:
-        classrooms = (
-            ClassRoom.objects
-            .filter(grades__academic_year=year)
-            .distinct()
-            .order_by('section', 'name')
-        )
-        sections = {}
-        for cls in classrooms:
-            sec = cls.section or 'Sans section'
-            sections.setdefault(sec, []).append({'id': cls.pk, 'name': cls.name})
-
-        if sections:
-            data[year.pk] = {
-                'label': year.label,
-                'sections': sections,
-            }
-
-    years_list = [{'id': pk, 'label': v['label']} for pk, v in data.items()]
+    tree = year_class_tree()
+    years_list = [{'id': pk, 'label': v['label']} for pk, v in tree.items()]
     return render(request, 'exports/export_index.html', {
         'years_list': years_list,
-        'export_data_json': _safe_json(data),
+        'export_data_json': safe_json(tree),
     })
 
 
@@ -60,13 +48,6 @@ def export_index(request):
 def export_csv_palmares(request, year_pk, class_pk):
     year = get_object_or_404(AcademicYear, pk=year_pk)
     classroom = get_object_or_404(ClassRoom, pk=class_pk)
-
-    grades = (
-        GradeRecord.objects
-        .filter(academic_year=year, classroom=classroom)
-        .select_related('student', 'verified_by')
-        .order_by('-percentage')
-    )
 
     filename = _safe_filename(f"palmares_{classroom.name}_{year.label}.csv")
     response = HttpResponse(content_type='text/csv; charset=utf-8')
@@ -76,17 +57,13 @@ def export_csv_palmares(request, year_pk, class_pk):
     writer = csv.writer(response, delimiter=';')
     writer.writerow(['Rang', 'Nom complet', 'Classe', 'Section', 'Année', 'Pourcentage', 'Statut', 'Vérifié'])
 
-    for rank, grade in enumerate(grades, start=1):
-        if grade.percentage is None:
-            pct_str, statut = '—', 'Non noté'
-        else:
-            pct_str = str(grade.percentage).replace('.', ',')
-            statut = 'Admis' if grade.percentage >= 50 else 'Ajourné'
+    for rank, grade in ranked_grades(class_grades(year, classroom)):
+        pct_str, statut = _status_columns(grade)
         writer.writerow([
-            rank,
-            grade.student.full_name,
-            classroom.name,
-            classroom.section,
+            rank if rank is not None else '—',
+            csv_safe(grade.student.full_name),
+            csv_safe(classroom.name),
+            csv_safe(classroom.section),
             year.label,
             pct_str,
             statut,
@@ -104,12 +81,9 @@ def export_csv_students(request):
     grades = GradeRecord.objects.select_related('student', 'classroom', 'academic_year').all()
 
     if query:
-        grades = grades.filter(student__full_name__icontains=query)
-    if year_id:
-        try:
-            grades = grades.filter(academic_year_id=int(year_id))
-        except (ValueError, TypeError):
-            pass  # year_id invalide : ignorer le filtre
+        grades = grades.filter(student__name_key__contains=name_key(query))
+    if year_id.isdigit():  # identifiant invalide : on ignore le filtre
+        grades = grades.filter(academic_year_id=int(year_id))
 
     grades = grades.order_by('student__full_name', '-academic_year__label')
 
@@ -120,16 +94,12 @@ def export_csv_students(request):
     writer = csv.writer(response, delimiter=';')
     writer.writerow(['Nom complet', 'Classe', 'Section', 'Année', 'Pourcentage', 'Statut', 'Vérifié'])
 
-    for grade in grades:
-        if grade.percentage is None:
-            pct_str, statut = '—', 'Non noté'
-        else:
-            pct_str = str(grade.percentage).replace('.', ',')
-            statut = 'Admis' if grade.percentage >= 50 else 'Ajourné'
+    for grade in grades.iterator(chunk_size=2000):
+        pct_str, statut = _status_columns(grade)
         writer.writerow([
-            grade.student.full_name,
-            grade.classroom.name,
-            grade.classroom.section,
+            csv_safe(grade.student.full_name),
+            csv_safe(grade.classroom.name),
+            csv_safe(grade.classroom.section),
             grade.academic_year.label,
             pct_str,
             statut,
@@ -144,30 +114,12 @@ def export_pdf_palmares(request, year_pk, class_pk):
     year = get_object_or_404(AcademicYear, pk=year_pk)
     classroom = get_object_or_404(ClassRoom, pk=class_pk)
 
-    grades = (
-        GradeRecord.objects
-        .filter(academic_year=year, classroom=classroom)
-        .select_related('student')
-        .order_by('-percentage')
+    grades = class_grades(year, classroom)
+    return _pdf_response(
+        'exports/palmares_pdf.html',
+        {'year': year, 'classroom': classroom, 'rows': ranked_grades(grades), 'stats': grade_summary(grades)},
+        f"palmares_{classroom.name}_{year.label}.pdf",
     )
-
-    html = render_to_string('exports/palmares_pdf.html', {
-        'year': year,
-        'classroom': classroom,
-        'grades': grades,
-        'total': grades.count(),
-        'passed': grades.filter(percentage__gte=50).count(),
-    })
-
-    try:
-        from weasyprint import HTML
-        pdf = HTML(string=html).write_pdf()
-        filename = _safe_filename(f"palmares_{classroom.name}_{year.label}.pdf")
-        response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        return response
-    except ImportError:
-        return HttpResponse("WeasyPrint non installé.", status=500)
 
 
 @login_required
@@ -178,18 +130,8 @@ def export_pdf_student(request, student_pk):
         .select_related('classroom', 'academic_year')
         .order_by('-academic_year__label')
     )
-
-    html = render_to_string('exports/student_pdf.html', {
-        'student': student,
-        'grades': grades,
-    })
-
-    try:
-        from weasyprint import HTML
-        pdf = HTML(string=html).write_pdf()
-        filename = _safe_filename(f"releve_{student.full_name}.pdf")
-        response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        return response
-    except ImportError:
-        return HttpResponse("WeasyPrint non installé.", status=500)
+    return _pdf_response(
+        'exports/student_pdf.html',
+        {'student': student, 'grades': grades},
+        f"releve_{student.full_name}.pdf",
+    )

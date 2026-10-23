@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="fr" class="h-full">
 <head>
     <meta charset="UTF-8">
@@ -11,27 +11,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
-                    colors: {
-                        sidebar: '#0f172a',
-                        accent:  '#3b82f6',
-                    }
-                }
-            }
-        }
-    </script>
-
-    <!-- HTMX -->
-    <script src="https://unpkg.com/htmx.org@2.0.3"></script>
-
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- CSS Tailwind compilé (npm run build:css) et HTMX hébergés sur le serveur : aucune dépendance à un CDN -->
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    <script src="{% static 'js/htmx.min.js' %}"></script>
 
     <style>
         body { font-family: 'Inter', ui-sans-serif, system-ui; }
@@ -300,11 +282,12 @@
         el.style.transform = 'translateY(8px)';
         el.innerHTML =
             '<div class="shrink-0 mt-0.5">' + (icons[type] || icons.info) + '</div>' +
-            '<p class="flex-1 text-sm font-medium">' + text.replace(/</g, '&lt;') + '</p>' +
+            '<p class="flex-1 text-sm font-medium"></p>' +
             '<button class="shrink-0 text-slate-400 hover:text-slate-600 transition-colors">' +
                 '<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>' +
             '</button>';
 
+        el.querySelector('p').textContent = text;
         el.querySelector('button').addEventListener('click', function() { removeToast(el); });
         container.appendChild(el);
 

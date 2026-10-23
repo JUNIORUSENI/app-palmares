@@ -22,7 +22,7 @@
                 </svg>
             </div>
             <h1 class="text-lg font-bold text-red-900">Annuler cet import ?</h1>
-            <p class="mt-1 text-sm text-red-700">Le fichier et tous les résultats associés seront supprimés.</p>
+            <p class="mt-1 text-sm text-red-700">Les résultats créés par ce fichier seront supprimés et les valeurs qu'il a modifiées seront restaurées.</p>
         </div>
 
         <!-- Details -->
@@ -44,14 +44,29 @@
                 <span class="font-medium text-slate-700">{{ source_file.imported_at|date:"d/m/Y à H:i" }}</span>
             </div>
             <div class="flex items-center justify-between text-sm">
-                <span class="text-slate-500">Résultats liés</span>
+                <span class="text-slate-500">Résultats créés</span>
                 <span class="font-semibold {% if grade_count > 0 %}text-red-600{% else %}text-slate-900{% endif %}">
                     {{ grade_count }} résultat{{ grade_count|pluralize }}
                 </span>
             </div>
+            {% if restore_count %}
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-slate-500">Valeurs à restaurer</span>
+                <span class="font-semibold text-slate-900">{{ restore_count }}</span>
+            </div>
+            {% endif %}
             {% if grade_count > 0 %}
             <div class="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800">
-                <strong>Attention :</strong> {{ grade_count }} résultat{{ grade_count|pluralize }} importé{{ grade_count|pluralize }} depuis ce fichier seront définitivement supprimé{{ grade_count|pluralize }}.
+                <strong>Attention :</strong> {{ grade_count }} résultat{{ grade_count|pluralize }} créé{{ grade_count|pluralize }}
+                par ce fichier {{ grade_count|pluralize:"sera,seront" }} définitivement supprimé{{ grade_count|pluralize }}.
+                {% if verified_count %}<br><strong>{{ verified_count }}</strong> d'entre eux ont déjà été vérifié{{ verified_count|pluralize }}.{% endif %}
+            </div>
+            {% endif %}
+            {% if legacy %}
+            <div class="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-xs text-red-800">
+                <strong>Import ancien :</strong> il ne permet pas de distinguer les résultats créés de ceux qui ont été
+                modifiés. Tous les résultats liés à ce fichier seront supprimés, y compris d'éventuelles notes qui
+                existaient avant cet import.
             </div>
             {% endif %}
         </div>

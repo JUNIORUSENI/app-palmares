@@ -1,0 +1,51 @@
+{% comment %}
+Pagination commune à tous les tableaux.
+Paramètres :
+  page_obj   page retournée par apps.core.pagination.paginate()
+  label      nom au singulier des lignes (« élève », « import »…), « résultat » par défaut
+  base_url   URL de la page (par défaut l'URL courante) ; utile quand le tableau est rechargé par un autre endpoint
+  hx_target  sélecteur CSS : si renseigné, la navigation se fait en HTMX dans cet élément (sans recharger la page)
+  hx_push    « 1 » pour mettre à jour l'URL du navigateur pendant la navigation HTMX
+Les autres paramètres de l'URL (recherche, filtres, lot…) sont conservés par {% querystring %}.
+{% endcomment %}
+{% if page_obj.has_other_pages %}
+{% with base=base_url|default:request.path %}
+<nav class="mt-4 flex flex-wrap items-center justify-between gap-3" aria-label="Pagination">
+    <p class="text-xs text-slate-500">
+        {{ page_obj.start_index }}–{{ page_obj.end_index }} sur {{ page_obj.paginator.count }} {{ label|default:"résultat" }}{{ page_obj.paginator.count|pluralize }}
+        <span class="text-slate-400">(page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }})</span>
+    </p>
+    <div class="flex items-center gap-1">
+        {% if page_obj.has_previous %}
+        <a href="{{ base }}{% querystring page=page_obj.previous_page_number %}"
+           {% if hx_target %}hx-get="{{ base }}{% querystring page=page_obj.previous_page_number %}" hx-target="{{ hx_target }}" hx-swap="innerHTML"{% if hx_push %} hx-push-url="true"{% endif %}{% endif %}
+           aria-label="Page précédente"
+           class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors">&lsaquo;</a>
+        {% else %}
+        <span aria-hidden="true" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed">&lsaquo;</span>
+        {% endif %}
+
+        {% for number in page_obj.page_numbers %}
+            {% if number is None %}
+            <span class="flex h-8 w-6 items-center justify-center text-xs text-slate-400">…</span>
+            {% elif number == page_obj.number %}
+            <span aria-current="page" class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-xs font-semibold text-white">{{ number }}</span>
+            {% else %}
+            <a href="{{ base }}{% querystring page=number %}"
+               {% if hx_target %}hx-get="{{ base }}{% querystring page=number %}" hx-target="{{ hx_target }}" hx-swap="innerHTML"{% if hx_push %} hx-push-url="true"{% endif %}{% endif %}
+               class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs text-slate-600 hover:bg-slate-50 transition-colors">{{ number }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+        <a href="{{ base }}{% querystring page=page_obj.next_page_number %}"
+           {% if hx_target %}hx-get="{{ base }}{% querystring page=page_obj.next_page_number %}" hx-target="{{ hx_target }}" hx-swap="innerHTML"{% if hx_push %} hx-push-url="true"{% endif %}{% endif %}
+           aria-label="Page suivante"
+           class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors">&rsaquo;</a>
+        {% else %}
+        <span aria-hidden="true" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed">&rsaquo;</span>
+        {% endif %}
+    </div>
+</nav>
+{% endwith %}
+{% endif %}

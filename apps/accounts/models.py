@@ -35,5 +35,15 @@ class User(AbstractUser):
     def is_reader(self):
         return True  # Tous les rôles ont accès en lecture
 
+    def save(self, *args, **kwargs):
+        # Un superuser (createsuperuser) doit toujours avoir les droits d'administration
+        # de l'application, sinon il serait « Lecteur » par défaut.
+        if self.is_superuser and self.role != self.ROLE_ADMIN:
+            self.role = self.ROLE_ADMIN
+            update_fields = kwargs.get('update_fields')
+            if update_fields is not None:
+                kwargs['update_fields'] = {*update_fields, 'role'}
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.get_full_name() or self.username} ({self.get_role_display()})"

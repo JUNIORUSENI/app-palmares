@@ -26,9 +26,11 @@
     <p class="meta">Année scolaire : <strong>{{ year }}</strong> · Section : <strong>{{ classroom.section }}</strong></p>
 
     <div class="stats">
-        <div class="stat-card"><div class="val">{{ total }}</div>Élèves</div>
-        <div class="stat-card"><div class="val" style="color:#16a34a">{{ passed }}</div>Admis</div>
-        <div class="stat-card"><div class="val" style="color:#dc2626">{{ total|add:"-"|add:passed }}</div>Ajournés</div>
+        <div class="stat-card"><div class="val">{{ stats.total }}</div>Élèves</div>
+        <div class="stat-card"><div class="val" style="color:#16a34a">{{ stats.passed }}</div>Admis</div>
+        <div class="stat-card"><div class="val" style="color:#dc2626">{{ stats.failed }}</div>Ajournés</div>
+        {% if stats.ungraded %}<div class="stat-card"><div class="val" style="color:#64748b">{{ stats.ungraded }}</div>Non notés</div>{% endif %}
+        {% if stats.pass_rate is not None %}<div class="stat-card"><div class="val">{{ stats.pass_rate }}%</div>Taux de réussite</div>{% endif %}
     </div>
 
     <table>
@@ -41,13 +43,15 @@
             </tr>
         </thead>
         <tbody>
-            {% for grade in grades %}
+            {% for rank, grade in rows %}
             <tr>
-                <td style="color:#94a3b8">{{ forloop.counter }}</td>
+                <td style="color:#94a3b8">{{ rank|default_if_none:"—" }}</td>
                 <td><strong>{{ grade.student.full_name }}</strong></td>
-                <td style="font-family:monospace">{{ grade.percentage }}%</td>
+                <td style="font-family:monospace">{% if grade.percentage is None %}—{% else %}{{ grade.percentage }}%{% endif %}</td>
                 <td>
-                    {% if grade.percentage >= 50 %}
+                    {% if grade.percentage is None %}
+                    <span class="badge">Non noté</span>
+                    {% elif grade.percentage >= 50 %}
                     <span class="badge admis">Admis</span>
                     {% else %}
                     <span class="badge ajourn">Ajourné</span>

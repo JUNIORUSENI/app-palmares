@@ -1,4 +1,19 @@
-{% if source_file.status == 'processing' %}
+{% if source_file.is_stale %}
+<!-- ===== BLOQUÉ ===== -->
+<div id="import-status" class="flex flex-col items-center gap-4">
+    <div>
+        <p class="text-base font-semibold text-slate-900">Le traitement semble bloqué</p>
+        <p class="mt-1 text-sm text-slate-500">L'import ne progresse plus depuis plus de 10 minutes. Aucune donnée n'a été modifiée ; vous pouvez relancer.</p>
+    </div>
+    <form method="post" action="{% url 'imports:import_retry' source_file.pk %}">
+        {% csrf_token %}
+        <button type="submit"
+                class="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors">
+            Relancer
+        </button>
+    </form>
+</div>
+{% elif source_file.status == 'processing' %}
 <!-- ===== PROCESSING: re-poll every 2s ===== -->
 <div id="import-status"
      hx-get="{% url 'imports:import_status' source_file.pk %}"
@@ -73,6 +88,15 @@
         </div>
     </div>
 
+    {% with r=source_file.import_report %}
+    {% if r.created is not None %}
+    <p class="text-sm text-slate-500">
+        {{ r.created }} créé{{ r.created|pluralize }} · {{ r.updated }} mis à jour · {{ r.unchanged }} déjà identique{{ r.unchanged|pluralize }}
+        {% if r.blocked %}· <span class="text-amber-600">{{ r.blocked }} ignoré{{ r.blocked|pluralize }} (déjà vérifié{{ r.blocked|pluralize }})</span>{% endif %}
+        {% if r.skipped %}· <span class="text-red-600">{{ r.skipped }} ligne{{ r.skipped|pluralize }} en erreur</span>{% endif %}
+    </p>
+    {% endif %}
+    {% endwith %}
     <a href="{% url 'dashboard:home' %}"
        class="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors">
         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -106,13 +130,13 @@
     {% endif %}
 
     <div class="flex items-center gap-3">
-        <a href="{% url 'imports:import_upload' %}"
-           class="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors">
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
-            </svg>
-            Réessayer
-        </a>
+        <form method="post" action="{% url 'imports:import_retry' source_file.pk %}">
+            {% csrf_token %}
+            <button type="submit"
+                    class="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors">
+                Réessayer
+            </button>
+        </form>
         <a href="{% url 'imports:import_list' %}"
            class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50 transition-colors">
             Retour à la liste

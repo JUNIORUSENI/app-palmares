@@ -27,7 +27,7 @@
         <div>
             {% include "academics/partials/student_name_display.html" %}
             <p class="mt-0.5 text-sm text-slate-500">
-                {{ grades.count }} résultat{{ grades.count|pluralize }} enregistré{{ grades.count|pluralize }}
+                {{ grades.paginator.count }} résultat{{ grades.paginator.count|pluralize }} enregistré{{ grades.paginator.count|pluralize }}
             </p>
         </div>
     </div>
@@ -146,6 +146,8 @@
     </div>
 </div>
 
+
+{% include "components/pagination.html" with page_obj=grades label="résultat" %}
 
 {% endblock %}
 

@@ -1,25 +1,17 @@
-import json
-from django.core.paginator import Paginator
-from django.shortcuts import render, get_object_or_404, redirect
-
-
-def _safe_json(data):
-    """json.dumps avec échappement des caractères HTML dangereux (<, >, &).
-    Indispensable pour injecter du JSON directement dans une balise <script>.
-    """
-    return (
-        json.dumps(data)
-        .replace('<', r'\u003c')
-        .replace('>', r'\u003e')
-        .replace('&', r'\u0026')
-    )
-
 from django.contrib.auth.decorators import login_required
-from django.db.models import Avg, Count, Q, Sum
 from django.contrib.postgres.search import TrigramSimilarity
+from django.db.models import Avg, Count, Q, Sum
+from django.shortcuts import render, get_object_or_404
 
 from apps.academics.models import AcademicYear, ClassRoom, GradeRecord, Student
+from apps.academics.services import class_grades, grade_summary, ranked_grades
 from apps.accounts.mixins import reader_redirect, admin_required
+from apps.core.pagination import paginate
+
+YEARS_PAGE_SIZE = 15
+CLASSES_PAGE_SIZE = 25
+PALMARES_PAGE_SIZE = 50
+AUDIT_PAGE_SIZE = 50
 
 
 @login_required
@@ -41,7 +33,7 @@ def home(request):
     recent_files = SourceFile.objects.select_related('academic_year').order_by('-imported_at')[:5]
 
     return render(request, 'dashboard/home.html', {
-        'years': years,
+        'years': paginate(request, years, YEARS_PAGE_SIZE),
         'stats': stats,
         'recent_files': recent_files,
     })
@@ -68,11 +60,9 @@ def global_search(request):
 def year_dashboard(request, year_pk):
     year = get_object_or_404(AcademicYear, pk=year_pk)
 
-    stats = GradeRecord.objects.filter(academic_year=year).aggregate(
-        avg_pct=Avg('percentage'),
-        total=Count('id'),
-        passed=Count('id', filter=Q(percentage__gte=50)),
-    )
+    year_grades = GradeRecord.objects.filter(academic_year=year)
+    stats = grade_summary(year_grades)
+    stats['avg_pct'] = year_grades.aggregate(avg=Avg('percentage'))['avg']
 
     classes = (
         ClassRoom.objects
@@ -85,15 +75,12 @@ def year_dashboard(request, year_pk):
         .order_by('section', 'name')
     )
 
-    pass_rate = round(stats['passed'] / stats['total'] * 100, 1) if stats['total'] else 0
-
     return render(request, 'dashboard/year_dashboard.html', {
         'year': year,
         'stats': stats,
-        'pass_rate': pass_rate,
-        'classes': classes,
+        'pass_rate': stats['pass_rate'] or 0,
+        'classes': paginate(request, classes, CLASSES_PAGE_SIZE),
     })
-
 
 
 @login_required
@@ -102,19 +89,12 @@ def class_palmares(request, year_pk, class_pk):
     year = get_object_or_404(AcademicYear, pk=year_pk)
     classroom = get_object_or_404(ClassRoom, pk=class_pk)
 
-    grades = (
-        GradeRecord.objects
-        .filter(academic_year=year, classroom=classroom)
-        .select_related('student', 'verified_by')
-        .order_by('-percentage')
-    )
-
+    grades = class_grades(year, classroom)
     return render(request, 'dashboard/class_palmares.html', {
         'year': year,
         'classroom': classroom,
-        'grades': grades,
-        'total': grades.count(),
-        'passed': grades.filter(percentage__gte=50).count(),
+        'rows': paginate(request, ranked_grades(grades), PALMARES_PAGE_SIZE),
+        'stats': grade_summary(grades),
     })
 
 
@@ -176,13 +156,12 @@ def audit_log(request):
 
     if action:
         qs = qs.filter(action=action)
-    if user_id:
-        qs = qs.filter(user_id=user_id)
+    if user_id.isdigit():  # un identifiant non numérique provoquerait une erreur 500
+        qs = qs.filter(user_id=int(user_id))
     if model:
         qs = qs.filter(model_name=model)
 
-    paginator = Paginator(qs, 50)
-    page = paginator.get_page(request.GET.get('page'))
+    page = paginate(request, qs, AUDIT_PAGE_SIZE)
 
     users = User.objects.filter(audit_logs__isnull=False).distinct().order_by('username')
     actions = AuditLog.ACTION_CHOICES
