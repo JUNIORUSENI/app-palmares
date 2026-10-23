@@ -9,7 +9,7 @@
     "watch:css": "tailwindcss -c tailwind.config.js -i assets/css/input.css -o static/css/app.css --watch"
   },
   "devDependencies": {
-    "tailwindcss": "3.4.19"
+    "tailwindcss": "4.3.3"
   },
   "dependencies": {
     "htmx.org": "2.0.11"
