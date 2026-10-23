@@ -8,16 +8,16 @@
     <div class="flex flex-wrap items-center gap-2">
         <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-sm">
             <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
-            {{ total }} résultat{{ total|pluralize }}
+            {{ stats.total }} résultat{{ stats.total|pluralize }}
         </span>
         <span class="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700 shadow-sm">
             <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
-            {{ passed }} admis — {{ pass_rate }}%
+            {{ stats.passed }} admis{% if stats.pass_rate is not None %} — {{ stats.pass_rate }}%{% endif %}
         </span>
-        {% if unverified %}
+        {% if stats.unverified %}
         <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 shadow-sm">
             <span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
-            {{ unverified }} non vérifié{{ unverified|pluralize }}
+            {{ stats.unverified }} non vérifié{{ stats.unverified|pluralize }}
         </span>
         {% else %}
         <span class="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700 shadow-sm">
@@ -48,11 +48,11 @@
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-            {% for grade in grades %}
+            {% for rank, grade in rows %}
             <tr id="grade-row-{{ grade.pk }}" class="hover:bg-slate-50/60 transition-colors">
 
                 <!-- Rang -->
-                <td class="px-4 py-3 text-xs text-slate-400 font-medium">{{ forloop.counter }}</td>
+                <td class="px-4 py-3 text-xs text-slate-400 font-medium">{{ rank|default_if_none:"—" }}</td>
 
                 <!-- Nom (lien vers le détail) -->
                 <td class="px-4 py-3">
@@ -132,3 +132,5 @@
     </table>
     </div>
 </div>
+
+{% include "components/pagination.html" with page_obj=rows label="résultat" hx_target="#results-container" %}

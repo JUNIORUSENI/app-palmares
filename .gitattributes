@@ -1,0 +1,7 @@
+# Fins de ligne : les scripts et fichiers de configuration tournent sous Linux (conteneurs, VPS).
+# Avec des fins de ligne Windows (CRLF), « #!/bin/sh^M » ne s'exécute pas.
+* text=auto
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.conf text eol=lf

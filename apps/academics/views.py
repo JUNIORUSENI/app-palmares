@@ -1,48 +1,43 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required
+from django.contrib.postgres.search import TrigramSimilarity
+from django.db.models import Count
+from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
-from django.db.models import Count, F
-from django.core.paginator import Paginator
-import json
+from django.views.decorators.http import require_http_methods
 
 from apps.accounts.mixins import editor_required
-
-
-def _safe_json(data):
-    return (
-        json.dumps(data)
-        .replace('<', r'\u003c')
-        .replace('>', r'\u003e')
-        .replace('&', r'\u0026')
-    )
-
 from apps.audit.utils import log_action
+from apps.core.pagination import paginate
+from apps.core.text import name_key, normalize_label, safe_json
+from apps.imports.excel import parse_percentage
 from .models import Student, GradeRecord, AcademicYear, ClassRoom
+from .services import MergeError, class_grades, grade_summary, merge_students, ranked_grades, year_class_tree
 
-PAGE_SIZE = 30
+PAGE_SIZE = 30          # liste des élèves
+GRADES_PAGE_SIZE = 15   # résultats d'un élève
+RESULTS_PAGE_SIZE = 50  # résultats d'une classe
+NAME_MAX_LENGTH = Student._meta.get_field('full_name').max_length
 
 
 @login_required
 def student_list(request):
     query = request.GET.get('q', '').strip()
-    page = request.GET.get('page', 1)
 
     students = Student.objects.annotate(grade_count=Count('grades'))
 
     if query:
-        students = students.filter(full_name__icontains=query)
+        # Recherche insensible à la casse, aux accents, aux espaces et aux tirets
+        students = students.filter(name_key__contains=name_key(query))
 
     students = students.order_by('full_name')
 
-    paginator = Paginator(students, PAGE_SIZE)
-    page_obj = paginator.get_page(page)
+    page_obj = paginate(request, students, PAGE_SIZE)
 
     ctx = {
         'page_obj': page_obj,
         'query': query,
-        'total_count': paginator.count,
+        'total_count': page_obj.paginator.count,
     }
 
     if request.htmx:
@@ -61,32 +56,51 @@ def student_detail(request, pk):
     )
     return render(request, 'academics/student_detail.html', {
         'student': student,
-        'grades': grades,
+        'grades': paginate(request, grades, GRADES_PAGE_SIZE),
     })
 
 
 @editor_required
+@require_http_methods(['GET', 'POST'])
 def student_merge(request, pk):
     student = get_object_or_404(Student, pk=pk)
 
     if request.method == 'POST':
-        target_id = request.POST.get('target_id')
-        target = get_object_or_404(Student, pk=target_id)
+        try:
+            target = Student.objects.get(pk=int(request.POST.get('target_id', '')))
+        except (ValueError, Student.DoesNotExist):
+            messages.error(request, "Élève cible introuvable.")
+            return redirect('academics:student_merge', pk=pk)
 
-        # Réattribuer tous les résultats vers la cible
-        GradeRecord.objects.filter(student=student).update(student=target)
-        log_action(request.user, 'merge', 'Student', student.pk,
-                   old_value={'full_name': student.full_name},
-                   new_value={'merged_into': target.full_name})
-        student.delete()
-        messages.success(request, f"'{student.full_name}' fusionné avec '{target.full_name}'.")
+        source_pk, source_name = student.pk, student.full_name
+        grade_count = student.grades.count()
+        try:
+            result = merge_students(student, target)
+        except MergeError as exc:
+            messages.error(request, str(exc))
+            return redirect('academics:student_merge', pk=pk)
+
+        log_action(request.user, 'merge', 'Student', source_pk,
+                   old_value={'full_name': source_name, 'grade_count': grade_count},
+                   new_value={'merged_into': target.full_name, 'target_id': target.pk, **result},
+                   object_repr=source_name)
+        messages.success(request, f"'{source_name}' fusionné avec '{target.full_name}'.")
+        if result['conflicts']:
+            messages.warning(
+                request,
+                f"{len(result['conflicts'])} résultat(s) existaient déjà pour la même classe et la même "
+                "année : un seul a été conservé (détail dans le journal d'audit)."
+            )
         return redirect('academics:student_detail', pk=target.pk)
 
-    # Suggestions de doublons par similarité de nom
+    # Suggestions de doublons par similarité de nom (pg_trgm), les plus proches d'abord
     candidates = (
         Student.objects
-        .filter(full_name__icontains=student.full_name.split()[0])
-        .exclude(pk=student.pk)[:10]
+        .exclude(pk=student.pk)
+        .annotate(similarity=TrigramSimilarity('full_name', student.full_name))
+        .filter(similarity__gt=0.3)
+        .annotate(grade_count=Count('grades'))
+        .order_by('-similarity', 'full_name')[:10]
     )
     return render(request, 'academics/student_merge.html', {
         'student': student,
@@ -115,19 +129,11 @@ def grade_edit_inline(request, pk):
     grade = get_object_or_404(GradeRecord, pk=pk)
 
     if request.method == 'POST':
-        new_pct = request.POST.get('percentage', '').strip()
-        if new_pct == '':
-            value = None
-        else:
-            try:
-                from decimal import Decimal, InvalidOperation
-                value = Decimal(new_pct)
-                if not (Decimal('0') <= value <= Decimal('100')):
-                    raise ValueError('hors limites')
-            except (ValueError, InvalidOperation):
-                return render(request, 'academics/partials/grade_cell.html', {
-                    'grade': grade, 'error': 'Valeur invalide (0–100)'
-                })
+        value, error = parse_percentage(request.POST.get('percentage', '').strip())
+        if error:
+            return render(request, 'academics/partials/grade_cell.html', {
+                'grade': grade, 'error': 'Valeur invalide (0–100)'
+            })
 
         old_value = float(grade.percentage) if grade.percentage is not None else None
         grade.percentage = value
@@ -201,10 +207,13 @@ def student_name_edit(request, pk):
     student = get_object_or_404(Student, pk=pk)
 
     if request.method == 'POST':
-        new_name = request.POST.get('full_name', '').strip()
-        if not new_name:
+        # Même normalisation que Student.save() : majuscules, espaces nettoyés
+        new_name = normalize_label(request.POST.get('full_name', ''))
+        if not new_name or len(new_name) > NAME_MAX_LENGTH:
             return render(request, 'academics/partials/student_name_display.html', {
-                'student': student, 'error': 'Le nom ne peut pas être vide.'
+                'student': student,
+                'error': 'Le nom ne peut pas être vide.' if not new_name
+                         else f'Le nom est trop long (max {NAME_MAX_LENGTH} caractères).',
             })
 
         old_name = student.full_name
@@ -230,26 +239,11 @@ def student_name_display(request, pk):
 @editor_required
 def results_index(request):
     """Page Résultats : sélecteur année → section → classe."""
-    years = AcademicYear.objects.order_by('-label')
-    data = {}
-    for year in years:
-        classrooms = (
-            ClassRoom.objects
-            .filter(grades__academic_year=year)
-            .distinct()
-            .order_by('section', 'name')
-        )
-        sections = {}
-        for cls in classrooms:
-            sec = cls.section or 'Sans section'
-            sections.setdefault(sec, []).append({'id': cls.pk, 'name': cls.name})
-        if sections:
-            data[year.pk] = {'label': year.label, 'sections': sections}
-
-    years_list = [{'id': pk, 'label': v['label']} for pk, v in data.items()]
+    tree = year_class_tree()
+    years_list = [{'id': pk, 'label': v['label']} for pk, v in tree.items()]
     return render(request, 'academics/results_index.html', {
-        'years_list_json': _safe_json(years_list),
-        'data_json': _safe_json(data),
+        'years_list_json': safe_json(years_list),
+        'data_json': safe_json(tree),
     })
 
 
@@ -259,26 +253,10 @@ def results_table(request, year_pk, class_pk):
     year = get_object_or_404(AcademicYear, pk=year_pk)
     classroom = get_object_or_404(ClassRoom, pk=class_pk)
 
-    grades = (
-        GradeRecord.objects
-        .filter(academic_year=year, classroom=classroom)
-        .select_related('student', 'verified_by')
-        .order_by(F('percentage').desc(nulls_last=True), 'student__full_name')
-    )
-
-    total = grades.count()
-    graded_qs = grades.filter(percentage__isnull=False)
-    graded_count = graded_qs.count()
-    passed = graded_qs.filter(percentage__gte=50).count()
-    pass_rate = round(passed / graded_count * 100, 1) if graded_count else 0
-    unverified = grades.filter(is_verified=False).count()
-
+    grades = class_grades(year, classroom)
     return render(request, 'academics/partials/results_table.html', {
         'year': year,
         'classroom': classroom,
-        'grades': grades,
-        'total': total,
-        'passed': passed,
-        'pass_rate': pass_rate,
-        'unverified': unverified,
+        'rows': paginate(request, ranked_grades(grades), RESULTS_PAGE_SIZE),
+        'stats': grade_summary(grades),
     })

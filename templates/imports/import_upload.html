@@ -32,7 +32,7 @@
                 <span class="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-mono font-medium text-blue-700 border border-blue-200">{{ col }}</span>
                 {% endfor %}
             </div>
-            <p class="mt-2 text-xs text-blue-600">Format accepté : <strong>.xlsx</strong> — Max <strong>100 fichiers</strong>, <strong>20 Mo</strong> par fichier</p>
+            <p class="mt-2 text-xs text-blue-600">Formats acceptés : <strong>.xlsx</strong> et <strong>.xls</strong> — Max <strong>{{ max_files }} fichiers</strong>, <strong>{{ max_file_mb }} Mo</strong> par fichier, <strong>{{ max_batch_mb }} Mo</strong> au total</p>
         </div>
     </div>
 
@@ -112,8 +112,9 @@
 {% block extra_js %}
 <script>
 (function() {
-    var MAX_FILES = 100;
-    var MAX_SIZE  = 20 * 1024 * 1024; // 20 MB
+    var MAX_FILES = {{ max_files }};
+    var MAX_SIZE  = {{ max_file_mb }} * 1024 * 1024;
+    var MAX_TOTAL = {{ max_batch_mb }} * 1024 * 1024;
 
     var fileInput     = document.getElementById('file-input');
     var dropLabel     = document.getElementById('drop-label');
@@ -180,6 +181,10 @@
 
         if (n > MAX_FILES) {
             fileError.textContent = 'Maximum ' + MAX_FILES + ' fichiers autorisés.';
+            fileError.style.display = 'block';
+            hasError = true;
+        } else if (totalSize > MAX_TOTAL) {
+            fileError.textContent = 'Lot trop volumineux (max ' + formatSize(MAX_TOTAL) + ' au total). Envoyez-le en plusieurs fois.';
             fileError.style.display = 'block';
             hasError = true;
         } else if (hasError) {
@@ -260,14 +265,19 @@
             body: formData,
             redirect: 'follow'
         }).then(function(response) {
+            if (response.status === 413) {
+                throw new Error('too-large');
+            }
             // Le serveur renvoie un 302 → fetch suit la redirection
             window.location.href = response.url;
-        }).catch(function() {
+        }).catch(function(error) {
             uploadBtn.disabled = false;
             uploadSpinner.style.display = 'none';
             uploadIconBtn.style.display = 'block';
-            uploadBtnText.textContent = 'Analyser ' + n + ' fichiers';
-            alert('Erreur réseau. Veuillez réessayer.');
+            uploadBtnText.textContent = n === 1 ? 'Analyser 1 fichier' : 'Analyser ' + n + ' fichiers';
+            alert(error && error.message === 'too-large'
+                ? 'Les fichiers sont trop volumineux pour être envoyés en une fois. Envoyez-les en plusieurs lots.'
+                : 'Erreur réseau. Veuillez réessayer.');
         });
     };
 })();

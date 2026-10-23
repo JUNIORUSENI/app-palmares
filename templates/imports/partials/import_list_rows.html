@@ -1,6 +1,6 @@
 <div id="import-table-container"
      {% if batch_stats and batch_stats.has_active %}
-     hx-get="{% url 'imports:import_list_rows' %}?batch={{ batch_id }}"
+     hx-get="{% url 'imports:import_list_rows' %}?batch={{ batch_id }}&page={{ files.number }}"
      hx-trigger="every 3s"
      hx-swap="outerHTML"
      {% endif %}>
@@ -165,4 +165,5 @@
         </table>
         </div>
     </div>
+    {% include "components/pagination.html" with page_obj=files label="import" base_url=import_list_url %}
 </div>

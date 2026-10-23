@@ -10,6 +10,8 @@ environ.Env.read_env(BASE_DIR / '.env')
 SECRET_KEY = env('SECRET_KEY')
 DEBUG = env.bool('DEBUG', default=False)
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
+# Chemin de l'admin Django (peut être changé dans .env pour éviter les scans automatiques)
+ADMIN_URL = env('ADMIN_URL', default='admin/')
 
 DJANGO_APPS = [
     'django.contrib.admin',
@@ -80,7 +82,7 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 10}},
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
@@ -110,6 +112,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Celery
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+# Tâches longues : un worker ne réserve qu'une tâche à la fois
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_BROKER_URL = env('REDIS_URL', default='redis://redis:6379/0')
 CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://redis:6379/0')
 CELERY_ACCEPT_CONTENT = ['json']
@@ -131,10 +136,15 @@ LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 
-# Sessions
-SESSION_COOKIE_AGE = 60 * 60 * 12  # 12 heures
-SESSION_SAVE_EVERY_REQUEST = True
+# Sessions : 12 h. Pas d'écriture en base à chaque requête (les pages d'import
+# se rafraîchissent toutes les 2 s, ce qui ferait une écriture par appel).
+SESSION_COOKIE_AGE = 60 * 60 * 12
+SESSION_SAVE_EVERY_REQUEST = False
 
-# Taille max fichier upload (50 MB)
-DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800
-FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800
+# Imports Excel — les limites doivent rester cohérentes avec client_max_body_size de nginx
+IMPORT_MAX_FILES = 100
+IMPORT_MAX_FILE_SIZE = 20 * 1024 * 1024    # par fichier
+IMPORT_MAX_BATCH_SIZE = 100 * 1024 * 1024  # total d'un envoi
+DATA_UPLOAD_MAX_NUMBER_FILES = IMPORT_MAX_FILES
+# Au-delà de 2,5 Mo (défaut Django) un fichier est écrit sur disque au lieu de rester en mémoire :
+# 3 workers x 100 Mo en RAM ne tiendraient pas sur un petit VPS.

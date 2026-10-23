@@ -2,7 +2,7 @@
 .git
 .gitignore
 
-# Environment secrets
+# Secrets
 .env
 .env.*
 !.env.example
@@ -16,10 +16,11 @@ __pycache__
 dist
 build
 
-# IDE
+# IDE / outils
 .vscode
 .idea
 *.swp
+.claude
 
 # Tests
 .pytest_cache
@@ -30,20 +31,19 @@ htmlcov
 .DS_Store
 Thumbs.db
 
-# Data files (ne pas inclure dans l'image)
+# Données (ne pas inclure dans l'image)
 *.xlsx
 *.xls
 *.csv
 
-# Logs
+# Logs, uploads et fichiers collectés (montés en volume / régénérés au build)
 *.log
 logs/
-
-# Media uploads (montés en volume)
 media/
-
-# Static collectés (regénérés au build)
 staticfiles/
+
+# Node : les dépendances sont installées dans l'étape de build
+node_modules
 
 # Docker
 docker-compose*.yml

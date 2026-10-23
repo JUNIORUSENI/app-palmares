@@ -24,7 +24,7 @@
     <div>
         <p class="text-sm font-semibold text-yellow-800">Action irréversible</p>
         <p class="mt-0.5 text-sm text-yellow-700">
-            Tous les résultats de <strong>{{ student.full_name }}</strong> seront transférés vers la cible sélectionnée, puis ce profil sera définitivement supprimé. Vérifiez votre sélection avant de confirmer.
+            Tous les résultats de <strong>{{ student.full_name }}</strong> seront transférés vers la cible sélectionnée, puis ce profil sera définitivement supprimé. Si les deux élèves ont déjà un résultat pour la même classe et la même année, celui de l'élève cible est conservé (sauf s'il n'a pas de note). Vérifiez votre sélection avant de confirmer.
         </p>
     </div>
 </div>
@@ -72,7 +72,7 @@
                 </td>
                 <td class="px-6 py-3.5">
                     <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
-                        {{ candidate.grades.count }} résultat{{ candidate.grades.count|pluralize }}
+                        {{ candidate.grade_count }} résultat{{ candidate.grade_count|pluralize }}
                     </span>
                 </td>
                 <td class="px-6 py-3.5">
@@ -81,7 +81,7 @@
                         <input type="hidden" name="target_id" value="{{ candidate.pk }}">
                         <button type="submit"
                                 class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
-                                onclick="return confirm('Fusionner {{ student.full_name }} vers {{ candidate.full_name }} ?\n\nCette action est irréversible.')">
+                                onclick="return confirm('Fusionner {{ student.full_name|escapejs }} vers {{ candidate.full_name|escapejs }} ?\n\nCette action est irréversible.')">
                             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
                             </svg>

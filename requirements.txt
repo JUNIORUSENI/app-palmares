@@ -1,31 +1,24 @@
 # Django
-Django==5.1.15
-django-environ==0.11.2
+Django==6.1.2
+django-environ==0.14.0
+django-htmx==1.29.0
+whitenoise==6.12.0
+gunicorn==26.2.0
 
 # Database
-psycopg2-binary==2.9.10
+psycopg2-binary==2.9.13
 
-# Async tasks
-celery==5.4.0
-redis==5.2.1
+# Async tasks (redis 6.4 : dernière version compatible avec kombu 5.6)
+celery[redis]==5.6.3
+redis==6.4.0
 
-# Excel / data parsing
+# Lecture des fichiers Excel (.xlsx / .xls)
 openpyxl==3.1.5
-pandas==2.2.3
+xlrd==2.0.2
 
-# Frontend
-django-htmx==1.21.0
+# Génération PDF
+weasyprint==70.0
+pillow==13.0.0
 
-# Static files
-whitenoise==6.8.2
-
-# Production server
-gunicorn==23.0.0
-
-# PDF generation
-weasyprint==68.0
-pillow==12.1.1
-
-# Dev / testing
-pytest-django==4.9.0
-factory-boy==3.3.1
+# Supervision des erreurs (actif seulement si SENTRY_DSN est défini)
+sentry-sdk==2.73.0

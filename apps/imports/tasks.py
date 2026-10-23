@@ -1,60 +1,78 @@
+import logging
+
 from celery import shared_task
 from celery.exceptions import SoftTimeLimitExceeded
 
+from apps.audit.utils import log_action
+
+from .models import SourceFile
 from .services import dry_run, do_import
+
+logger = logging.getLogger(__name__)
+
+GENERIC_ERROR = "Une erreur inattendue est survenue. Réessayez ou contactez un administrateur."
 
 
 @shared_task(bind=True, soft_time_limit=300, time_limit=360)
 def task_dry_run(self, source_file_id):
-    from .models import SourceFile
+    try:
+        source_file = SourceFile.objects.get(pk=source_file_id)
+    except SourceFile.DoesNotExist:
+        return  # import annulé entre-temps
 
-    source_file = SourceFile.objects.get(pk=source_file_id)
-    source_file.status = SourceFile.STATUS_PROCESSING
-    source_file.save(update_fields=['status'])
-
+    source_file.mark(SourceFile.STATUS_PROCESSING)
     try:
         report = dry_run(source_file.file.path)
     except SoftTimeLimitExceeded:
-        source_file.status = SourceFile.STATUS_ERROR
-        source_file.dry_run_report = {'error': "Délai dépassé lors de l'analyse du fichier."}
-        source_file.save(update_fields=['status', 'dry_run_report'])
+        source_file.mark(
+            SourceFile.STATUS_ERROR,
+            dry_run_report={'status': 'error', 'message': "Délai dépassé lors de l'analyse du fichier."},
+        )
+        return
+    except Exception:
+        logger.exception("Analyse du fichier %s en échec", source_file_id)
+        source_file.mark(
+            SourceFile.STATUS_ERROR,
+            dry_run_report={'status': 'error', 'message': GENERIC_ERROR},
+        )
         return
 
-    source_file.dry_run_report = report
-    source_file.total_rows = report.get('total_rows', 0)
-    source_file.status = SourceFile.STATUS_PENDING
-    source_file.save(update_fields=['dry_run_report', 'total_rows', 'status'])
-
+    # Un fichier illisible passe en erreur ; un fichier analysé attend la confirmation
+    status = SourceFile.STATUS_ERROR if report.get('status') == 'error' else SourceFile.STATUS_PENDING
+    source_file.mark(status, dry_run_report=report, total_rows=report.get('total_rows', 0))
     return report
 
 
 @shared_task(bind=True, soft_time_limit=300, time_limit=360)
 def task_import(self, source_file_id):
-    from .models import SourceFile
-
-    source_file = SourceFile.objects.get(pk=source_file_id)
-    source_file.status = SourceFile.STATUS_PROCESSING
-    source_file.save(update_fields=['status'])
-
     try:
-        result = do_import(source_file.file.path, source_file, task=self)
-
-        source_file.status = SourceFile.STATUS_DONE
-        source_file.imported_rows = result['imported']
-        source_file.error_rows = result['skipped']
-        source_file.import_report = result
-        source_file.save(update_fields=['status', 'imported_rows', 'error_rows', 'import_report'])
-
-    except SoftTimeLimitExceeded:
-        source_file.status = SourceFile.STATUS_ERROR
-        source_file.import_report = {'error': "Délai dépassé lors de l'import du fichier."}
-        source_file.save(update_fields=['status', 'import_report'])
+        source_file = SourceFile.objects.select_related('imported_by').get(pk=source_file_id)
+    except SourceFile.DoesNotExist:
         return
 
-    except Exception as e:
-        source_file.status = SourceFile.STATUS_ERROR
-        source_file.import_report = {'error': str(e)}
-        source_file.save(update_fields=['status', 'import_report'])
-        raise
+    source_file.mark(SourceFile.STATUS_PROCESSING)
+    try:
+        result = do_import(source_file.file.path, source_file, task=self)
+    except SoftTimeLimitExceeded:
+        source_file.mark(
+            SourceFile.STATUS_ERROR,
+            import_report={'error': "Délai dépassé lors de l'import du fichier."},
+        )
+        return
+    except Exception:
+        logger.exception("Import du fichier %s en échec", source_file_id)
+        source_file.mark(SourceFile.STATUS_ERROR, import_report={'error': GENERIC_ERROR})
+        return
 
+    source_file.mark(
+        SourceFile.STATUS_DONE,
+        imported_rows=result['imported'],
+        error_rows=result['skipped'],
+        import_report=result,
+    )
+    log_action(
+        source_file.imported_by, 'import', 'SourceFile', source_file.pk,
+        new_value={key: result[key] for key in ('total', 'created', 'updated', 'unchanged', 'blocked', 'skipped')},
+        object_repr=source_file.original_filename,
+    )
     return result

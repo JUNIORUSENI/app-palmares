@@ -6,9 +6,9 @@ propre, avec outils d'édition en ligne, vérification croisée, fusion de doubl
 
 ## Stack technique
 
-- **Backend** : Python 3.12, Django 5.1
+- **Backend** : Python 3.12, Django 6.1
 - **Base de données** : PostgreSQL 16 (avec `pg_trgm` pour la recherche floue)
-- **Frontend** : HTML/CSS + Tailwind CSS + HTMX + Alpine.js
+- **Frontend** : HTML/CSS + Tailwind CSS (compilé, `npm run build`) + HTMX (hébergé, aucun CDN)
 - **Tâches asynchrones** : Celery + Redis
 - **Serveur web** : Nginx (reverse proxy) + Gunicorn
 - **Conteneurisation** : Docker + Docker Compose
@@ -43,7 +43,7 @@ cd app-palmares
 cp .env.example .env
 # Éditer .env : renseigner SECRET_KEY, mots de passe, etc.
 
-# Lancer les services
+# Lancer les services (le service `css` compile Tailwind en continu)
 docker compose up -d
 
 # Créer un super-utilisateur
@@ -54,6 +54,23 @@ docker compose exec db psql -U palmares_user -d palmares_db -c "CREATE EXTENSION
 ```
 
 L'application est accessible sur `http://localhost:8000`.
+
+### Tests et sécurité des dépendances
+
+```bash
+docker compose run --rm --entrypoint "" -e DJANGO_SETTINGS_MODULE=config.settings.test web pytest
+docker compose run --rm --entrypoint "" web pip-audit -r requirements.txt   # failles Python
+npm audit                                                                    # failles front
+```
+
+La CI GitHub (`.github/workflows/ci.yml`) lance les tests et l'audit à chaque modification
+et **chaque lundi**. Dependabot propose les mises à jour de dépendances.
+
+### Fichiers Excel acceptés
+
+Colonnes : `Nom complet | Pourcentage | Classe | Section | Année scolaire` (`.xlsx` ou `.xls`, toutes les feuilles
+sont lues). Une note déjà **vérifiée** n'est jamais écrasée par un import ; toute note modifiée par un import est
+mémorisée, et l'annulation de l'import la restaure.
 
 ### Générer une SECRET_KEY
 
@@ -108,6 +125,8 @@ docker compose exec web python manage.py migrate        # Migrations
 docker compose exec web python manage.py createsuperuser # Créer admin
 docker compose exec web python manage.py shell          # Shell Django
 docker compose logs -f web                              # Logs
+docker compose exec web python manage.py merge_duplicates           # Uniformise les noms + fusionne les doublons (simulation)
+docker compose exec web python manage.py merge_duplicates --apply   # ... et applique
 
 # Production
 docker compose -f docker-compose.prod.yml up -d         # Démarrer en prod

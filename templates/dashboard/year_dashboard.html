@@ -95,7 +95,7 @@
         <div class="flex items-start justify-between">
             <div>
                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Nb classes</p>
-                <p class="mt-2 text-3xl font-bold text-slate-900">{{ classes.count }}</p>
+                <p class="mt-2 text-3xl font-bold text-slate-900">{{ classes.paginator.count }}</p>
             </div>
             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-100">
                 <svg class="h-5 w-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -168,5 +168,7 @@
         </tbody>
     </table>
 </div>
+
+{% include "components/pagination.html" with page_obj=classes label="classe" %}
 
 {% endblock %}

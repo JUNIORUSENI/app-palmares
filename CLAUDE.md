@@ -6,9 +6,9 @@ Transition depuis des archives Excel/Word déstructurées vers une base de donn�
 propre, avec outils d'édition en ligne, vérification croisée, fusion de doublons et analytique.
 
 ## Stack Technique
-- **Backend** : Python 3.12, Django 5.x
+- **Backend** : Python 3.12, Django 6.1
 - **Base de données** : PostgreSQL (avec extension `pg_trgm` pour la recherche floue)
-- **Frontend** : HTML/CSS + HTMX + Alpine.js (pas de SPA classique, pas de React/Vue)
+- **Frontend** : HTML/CSS + Tailwind compilé + HTMX hébergé, JavaScript natif (pas d'Alpine.js, pas de SPA, aucun CDN)
 - **Tâches asynchrones** : Celery + Redis
 - **Serveur web** : Nginx (reverse proxy, SSL, fichiers statiques)
 - **Conteneurisation** : Docker + Docker Compose
@@ -56,13 +56,18 @@ AuditLog         : id, user, action, model_name, object_id, old_value, new_value
 ## Conventions de développement
 - Langue du code : anglais (variables, fonctions, commentaires)
 - Langue de l'UI : français
-- Tests obligatoires pour toute logique métier (pytest-django)
+- Tests obligatoires pour toute logique métier (pytest-django, dossier `tests/`)
+- Noms (élèves, classes, sections, années) : toujours stockés en MAJUSCULES, espaces nettoyés (normalisés par `save()` des modèles) ;
+  comparer via `apps/core/text.py` (clé normalisée), jamais à la lettre près
+- Tout tableau qui peut grandir est paginé avec `apps/core/pagination.paginate()` + `templates/components/pagination.html`
 - Pas de logique dans les templates — uniquement dans les vues ou services
 - Utiliser des class-based views ou des fonctions simples selon le cas (pas de dogme)
 - Toujours utiliser `select_related` / `prefetch_related` pour éviter les N+1
 
 ## Commandes utiles
 ```bash
+docker compose run --rm --entrypoint "" -e DJANGO_SETTINGS_MODULE=config.settings.test web pytest   # Tests
+npm run build                 # Compile le CSS Tailwind + copie HTMX vers static/ (fichiers générés, non versionnés)
 docker compose up -d          # Démarrer tous les services
 docker compose exec web python manage.py migrate
 docker compose exec web python manage.py createsuperuser

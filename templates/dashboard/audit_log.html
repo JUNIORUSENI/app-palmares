@@ -160,28 +160,6 @@
     </div>
 </div>
 
-<!-- Pagination -->
-{% if page.has_other_pages %}
-<div class="mt-6 flex items-center justify-between">
-    <p class="text-sm text-slate-500">
-        Page {{ page.number }} sur {{ page.paginator.num_pages }}
-        <span class="text-slate-400">({{ page.paginator.count }} entrees)</span>
-    </p>
-    <div class="flex items-center gap-1">
-        {% if page.has_previous %}
-        <a href="?page={{ page.previous_page_number }}{% if current_action %}&action={{ current_action }}{% endif %}{% if current_user %}&user={{ current_user }}{% endif %}{% if current_model %}&model={{ current_model }}{% endif %}"
-           class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
-            Precedent
-        </a>
-        {% endif %}
-        {% if page.has_next %}
-        <a href="?page={{ page.next_page_number }}{% if current_action %}&action={{ current_action }}{% endif %}{% if current_user %}&user={{ current_user }}{% endif %}{% if current_model %}&model={{ current_model }}{% endif %}"
-           class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
-            Suivant
-        </a>
-        {% endif %}
-    </div>
-</div>
-{% endif %}
+{% include "components/pagination.html" with page_obj=page label="entrée" %}
 
 {% endblock %}

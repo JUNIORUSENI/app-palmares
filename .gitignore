@@ -46,3 +46,8 @@ htmlcov/
 
 # Claude Code (settings locaux)
 .claude/settings.local.json
+
+# Assets front générés (npm run build)
+node_modules/
+static/css/app.css
+static/js/htmx.min.js

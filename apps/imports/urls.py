@@ -10,6 +10,7 @@ urlpatterns = [
     path('<int:pk>/dry-run/', views.import_dry_run, name='import_dry_run'),
     path('<int:pk>/dry-run/status/', views.import_dry_run_status, name='import_dry_run_status'),
     path('<int:pk>/confirm/', views.import_confirm, name='import_confirm'),
+    path('<int:pk>/retry/', views.import_retry, name='import_retry'),
     path('<int:pk>/progress/', views.import_progress, name='import_progress'),
     path('<int:pk>/status/', views.import_status, name='import_status'),
     path('<int:pk>/rollback/', views.import_rollback, name='import_rollback'),
