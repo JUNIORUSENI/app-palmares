@@ -10,7 +10,7 @@ psycopg2-binary==2.9.13
 
 # Async tasks (redis 6.4 : dernière version compatible avec kombu 5.6)
 celery[redis]==5.6.3
-redis==6.4.0
+redis==8.1.0
 
 # Lecture des fichiers Excel (.xlsx / .xls)
 openpyxl==3.1.5
