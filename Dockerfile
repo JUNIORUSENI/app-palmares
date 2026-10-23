@@ -1,5 +1,5 @@
 # ── Étape 1 : compilation des assets front (Tailwind) ─────────────
-FROM node:24-alpine AS assets
+FROM node:25-alpine AS assets
 WORKDIR /build
 COPY package.json package-lock.json ./
 RUN npm ci
