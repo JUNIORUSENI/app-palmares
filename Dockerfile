@@ -12,7 +12,7 @@ COPY apps ./apps
 RUN npm run build
 
 # ── Étape 2 : application Django ──────────────────────────────────
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
