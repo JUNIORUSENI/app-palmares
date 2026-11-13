@@ -21,4 +21,4 @@ weasyprint==70.0
 pillow==13.0.0
 
 # Supervision des erreurs (actif seulement si SENTRY_DSN est défini)
-sentry-sdk==2.73.0
+sentry-sdk==2.74.0
