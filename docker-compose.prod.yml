@@ -77,7 +77,7 @@ services:
 
   redis:
     logging: *default-logging
-    image: redis:7-alpine
+    image: redis:8-alpine
     # noeviction : Redis sert de file de tâches Celery, il ne doit jamais supprimer de clés
     # (allkeys-lru pouvait effacer des tâches en attente). appendonly + volume : la file survit à un redémarrage.
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
